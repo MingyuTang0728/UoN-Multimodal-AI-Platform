@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UniCollab 3D — UK Map Edition</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+:root{
+  /* Bright & clean UI */
+  --bg:#f5f7fb; --panel:#ffffff; --panel2:#f8fafc; --text:#0f172a; --muted:#556476;
+  --accent:#1e90ff; --accent2:#22c55e; --warn:#f59e0b; --err:#ef4444; --ok:#16a34a;
+  --stroke:#e5e7eb; --shadow:0 10px 30px rgba(16,24,40,.08); --r:14px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.6 ui-sans-serif,system-ui,Inter,Roboto,Arial}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{background:#eef4ff;border:1px solid #dbeafe;border-radius:999px;padding:8px 14px;cursor:pointer;box-shadow:var(--shadow)}
+.btn:hover{filter:brightness(1.03)}
+.btn.primary{background:#1e90ff;color:#fff;border-color:#1e90ff}
+.btn.success{background:#22c55e;color:#fff;border-color:#16a34a}
+.btn.ghost{background:#fff;border-color:var(--stroke)}
+.a{color:#0b68d8;text-decoration:none}
+.wrap{max-width:1680px;margin:0 auto;padding:10px 16px}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 10px}
+.brand{font-weight:800;letter-spacing:.3px;font-size:18px}
+.kv{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.logo{height:28px;filter:contrast(1.1)}
+.api{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.api input{width:220px;background:#fff;border:1px solid var(--stroke);border-radius:999px;padding:8px 12px}
+.grid{display:grid;grid-template-columns:1.65fr .95fr;gap:14px}
+.card{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--r);box-shadow:var(--shadow)}
+.card .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--stroke)}
+.card .bd{padding:14px 16px}
+
+.world{position:relative;overflow:hidden}
+#world{position:absolute;inset:0}
+.uni-marker{position:relative;width:24px;height:24px;transform:translateY(-6px);transition:transform .15s ease}
+.uni-marker .pin{width:14px;height:14px;background:#1e90ff;border:2px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.uni-marker .label{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--stroke);border-radius:999px;padding:2px 8px;font-size:12px;white-space:nowrap;box-shadow:var(--shadow);opacity:0;transition:opacity .15s, transform .15s}
+.uni-marker.hover{transform:translateY(-6px) scale(1.25)}
+.uni-marker.hover .label{opacity:1;transform:translateX(-50%) translateY(-2px)}
+.world .hud{position:absolute;left:12px;bottom:12px;display:flex;gap:8px}
+.badge{padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);background:#fff;color:#0f172a;font-weight:700;box-shadow:var(--shadow)}
+
+/* Right panel */
+.tabs{display:flex;gap:8px}
+.tab{padding:6px 12px;border:1px solid var(--stroke);border-radius:999px;background:#fff;cursor:pointer;user-select:none}
+.tab.active{background:#1e90ff;color:#fff;border-color:#1e90ff}
+.section{display:none}
+.section.active{display:block}
+
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.item{background:var(--panel2);border:1px solid var(--stroke);border-radius:12px;padding:12px;display:grid;gap:8px}
+.item .meta{font-size:12px;color:var(--muted)}
+.item .tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{background:#eef2ff;border:1px solid #e5e7eb;padding:2px 8px;border-radius:999px;font-size:12px}
+
+/* Modal */
+.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(15,23,42,.25);padding:20px;z-index:20}
+.modal.show{display:grid}
+.modal .box{width:min(980px,95vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow)}
+.modal .box .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--stroke)}
+.modal .box .bd{padding:14px 16px}
+.form{display:grid;gap:10px}
+.form input,.form select,.form textarea{background:#fff;border:1px solid var(--stroke);border-radius:10px;padding:10px;width:100%}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Welcome */
+.welcome{position:fixed;inset:0;background:#f0f7ff;color:#0f172a;display:none;z-index:30}
+.welcome.show{display:grid}
+.wc-bg{position:absolute;inset:0;background:linear-gradient(180deg,#e8f3ff,transparent 60%);opacity:.6}
+.wc-inner{z-index:2;display:grid;place-items:center;padding:24px}
+.wc-card{max-width:980px;background:#fff;border:1px solid var(--stroke);border-radius:18px;padding:24px;box-shadow:var(--shadow)}
+.wc-card h1{margin:0 0 8px}
+.small{font-size:12px;color:var(--muted)}
+.sep{height:1px;background:var(--stroke);margin:10px 0}
+
+/* Log & Chat */
+.logbox{max-height:220px;overflow:auto;background:#fff;border:1px dashed #e5e7eb;border-radius:10px;padding:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.chatbox{max-height:260px;overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px}
+.chatmsg{margin:6px 0}
+.chatmsg .who{font-weight:700;margin-right:6px}
+
+@media (max-width:1150px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <img class="logo" src="https://upload.wikimedia.org/wikipedia/commons/4/48/Markdown-mark.svg" alt="logo"/>
+    <div class="brand">UniCollab 3D · UK Map Edition</div>
+    <span class="small">Georeferenced universities on a bright, clean UI</span>
+    <div class="api">
+      <input id="apiKey" type="password" placeholder="API Key (>=16 chars)" />
+      <input id="evalApi" placeholder="Eval API Base (e.g. http://localhost:8080)" />
+      <input id="wsUrl" placeholder="WebSocket URL (e.g. ws://localhost:8080)" />
+      <button class="btn primary" id="btnAuth">Authenticate</button>
+      <span id="authState" class="badge" title="Auth State">Guest</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Left: 3D UK map -->
+    <div class="card world" style="min-height:640px">
+      <div class="hd"><strong>3D UK Map · Click a university to jump into its Private space</strong>
+        <div class="kv">
+          <button class="btn ghost" id="btnReset">Reset View</button>
+          <button class="btn ghost" id="btnWelcome">Welcome</button>
+        </div>
+      </div>
+      <div class="bd" style="padding:0">
+        <div id="world"></div>
+      </div>
+      <div class="hud">
+        <span class="badge" id="hudTip">Hover to magnify markers · Click to open Private</span>
+      </div>
+    </div>
+
+    <!-- Right: node info + spaces + chat -->
+    <div class="card">
+      <div class="hd">
+        <strong id="nodeTitle">No university selected</strong>
+        <div class="tabs">
+          <div class="tab active" data-tab="info">Info</div>
+          <div class="tab" data-tab="co">Co‑create</div>
+          <div class="tab" data-tab="me">Private</div>
+          <div class="tab" data-tab="chat">Chat</div>
+        </div>
+      </div>
+      <div class="bd">
+        <!-- info -->
+        <section class="section active" id="sec-info">
+          <div class="row">
+            <div>
+              <div class="small">Node ID</div>
+              <div id="nodeId">—</div>
+            </div>
+            <div>
+              <div class="small">Members</div>
+              <div id="nodeMembers">—</div>
+            </div>
+          </div>
+          <div class="sep"></div>
+          <p class="small">Admins authenticate via API Key to curate co‑create & private spaces, publish projects, and write transparency hashes for reproducibility.</p>
+          <button class="btn" id="btnClaim">Claim with my API Key</button>
+        </section>
+
+        <!-- Co-create -->
+        <section class="section" id="sec-co">
+          <div class="kv" style="justify-content:space-between">
+            <div>
+              <strong>Co‑create Space (public & collaborative)</strong>
+              <div class="small">Upload demos, links, or your local UR console HTML to collaborate across universities.</div>
+            </div>
+            <div class="kv">
+              <button class="btn success" id="btnNewCo">+ Publish Project</button>
+              <label class="btn" for="tplCo">Import Template</label>
+              <input id="tplCo" type="file" accept="application/json,application/yaml,.json,.yml,.yaml" style="display:none"/>
+            </div>
+          </div>
+          <div class="list" id="coList"></div>
+        </section>
+
+        <!-- Private -->
+        <section class="section" id="sec-me">
+          <div class="kv" style="justify-content:space-between">
+            <div>
+              <strong>Private Space (API‑key scoped)</strong>
+              <div class="small">Local prototype uses browser storage; wire a backend for real RBAC.</div>
+            </div>
+            <div class="kv">
+              <button class="btn success" id="btnNewMe">+ New Private Project</button>
+              <label class="btn" for="tplMe">Import Template</label>
+              <input id="tplMe" type="file" accept="application/json,application/yaml,.json,.yml,.yaml" style="display:none"/>
+            </div>
+          </div>
+          <div class="list" id="meList"></div>
+        </section>
+
+        <!-- Chat -->
+        <section class="section" id="sec-chat">
+          <div class="kv" style="justify-content:space-between">
+            <div>
+              <strong>Node Chatroom</strong>
+              <div class="small">Messages are sent via WebSocket. You automatically join the selected node room.</div>
+            </div>
+            <div class="kv">
+              <button class="btn" id="btnReconnectWS">Reconnect WS</button>
+            </div>
+          </div>
+          <div id="chatBox" class="chatbox"></div>
+          <div class="kv" style="margin-top:8px">
+            <input id="chatInput" placeholder="Type a message…" style="flex:1;background:#fff;border:1px solid var(--stroke);border-radius:999px;padding:10px"/>
+            <button class="btn primary" id="btnSendChat">Send</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Transparency log -->
+    <div class="card" style="grid-column:1 / span 2">
+      <div class="hd"><strong>Transparency Log (append‑only)</strong>
+        <div class="kv">
+          <button class="btn" id="btnExportLog">Export JSON</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="small">Every project save or evaluation update appends a timestamped record with SHA‑256 hashes.</div>
+        <div id="logBox" class="logbox"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Project create/edit modal -->
+<div id="modal" class="modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <div class="hd"><strong id="modalTitle">New Project</strong> <button class="btn" id="modalClose">Close</button></div>
+    <div class="bd">
+      <div class="form">
+        <div class="row">
+          <label>Project name<input id="pName" placeholder="e.g., UR Multimodal Demo / Nottingham × UCL"/></label>
+          <label>Scope<select id="pScope"><option value="co">Co‑create</option><option value="me">Private</option></select></label>
+        </div>
+        <div class="row">
+          <label>University (owner)<input id="pNode" placeholder="auto‑filled by selected node"/></label>
+          <label>Tags (comma) <input id="pTags" placeholder="UR5e, GLB, CSV, point cloud, policy"/></label>
+        </div>
+        <label>Description<textarea id="pDesc" rows="3" placeholder="Short description, collaboration needs, data/model links…"></textarea></label>
+        <div class="row">
+          <label>External link (optional)<input id="pLink" placeholder="https://…"></label>
+          <label>UR Console HTML (optional)<input id="pHtml" type="file" accept="text/html,.html"/></label>
+        </div>
+        <div class="row">
+          <label>Attachment A (for hashing)<input id="pFileA" type="file" /></label>
+          <label>Attachment B (optional)<input id="pFileB" type="file" /></label>
+        </div>
+        <div class="row">
+          <label>Sim Card (JSON)<input id="pSim" type="file" accept="application/json,.json" /></label>
+          <label>Eval Card (JSON)<input id="pEval" type="file" accept="application/json,.json" /></label>
+        </div>
+        <div class="row">
+          <label>Dataset Card (JSON)<input id="pData" type="file" accept="application/json,.json" /></label>
+          <div></div>
+        </div>
+        <div class="kv" style="justify-content:flex-end"><button class="btn success" id="pSave">Save Project</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- UR console preview -->
+<div id="urModal" class="modal" role="dialog" aria-modal="true">
+  <div class="box" style="width:min(1200px,96vw)">
+    <div class="hd"><strong id="urTitle">UR Console</strong> <button class="btn" id="urClose">Close</button></div>
+    <div class="bd" style="padding:0">
+      <iframe id="urFrame" style="width:100%;height:min(76vh,900px);border:0;border-top-left-radius:16px;border-top-right-radius:16px;background:#fff"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome overlay -->
+<div id="welcome" class="welcome">
+  <div class="wc-bg" id="welcomeBg"></div>
+  <div class="wc-inner">
+    <div class="wc-card">
+      <h1 style="margin-bottom:4px">UniCollab 3D — UK Map Edition</h1>
+      <div class="small" style="margin-bottom:12px">Each university is a georeferenced marker on an authentic UK map. Use API Key for scoped access. Public co‑creation and private spaces share projects with traceable hashes. WebSocket enables chat & evaluation streaming.</div>
+      <div class="kv" style="gap:10px;flex-wrap:wrap">
+        <button class="btn primary" id="goEnter">Enter 3D Map</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+<script>
+/***********************
+ * 1) State & persistence
+ ***********************/
+const $ = (sel)=> document.querySelector(sel);
+const $$ = (sel)=> Array.from(document.querySelectorAll(sel));
+const state = {
+  authed:false,
+  apiKey:null,
+  evalApi: localStorage.getItem('uni3d_evalApi') || '',
+  wsUrl: localStorage.getItem('uni3d_ws') || '',
+  ws:null,
+  // UK universities with lat/lon
+  nodes:[
+    {id:'UoN', name:'University of Nottingham', lat:52.938, lon:-1.195, members:42},
+    {id:'UCL', name:'University College London', lat:51.5246, lon:-0.1340, members:39},
+    {id:'ICL', name:'Imperial College London', lat:51.4988, lon:-0.1749, members:31},
+    {id:'OXF', name:'University of Oxford', lat:51.7548, lon:-1.2544, members:27},
+    {id:'BRL', name:'Bristol Robotics Lab', lat:51.502, lon:-2.548, members:21},
+    {id:'EDI', name:'University of Edinburgh', lat:55.944, lon:-3.188, members:29},
+    {id:'MAN', name:'University of Manchester', lat:53.467, lon:-2.233, members:35},
+    {id:'CAM', name:'University of Cambridge', lat:52.205, lon:0.1218, members:33},
+    {id:'KCL', name:'King\'s College London', lat:51.511, lon:-0.116, members:28}
+  ],
+  selected:null,
+  projects:{ co:[], me:{} },
+  tlog:[],
+  chat:{}
+};
+
+function save(){ localStorage.setItem('uni3d', JSON.stringify({projects:state.projects,tlog:state.tlog})); localStorage.setItem('uni3d_evalApi', state.evalApi||''); localStorage.setItem('uni3d_ws', state.wsUrl||''); }
+function load(){ try{ const o=JSON.parse(localStorage.getItem('uni3d')); if(o){ state.projects=o.projects||state.projects; state.tlog=o.tlog||state.tlog; } }catch{} }
+load();
+
+/***********************
+ * 2) Auth & tabs
+ ***********************/
+$('#evalApi').value = state.evalApi; $('#wsUrl').value = state.wsUrl;
+$('#btnAuth').onclick = ()=>{
+  const key = $('#apiKey').value.trim();
+  state.evalApi = $('#evalApi').value.trim();
+  state.wsUrl = $('#wsUrl').value.trim();
+  if(key.length < 16){ alert('API Key must be at least 16 chars (demo)'); return; }
+  state.authed = true; state.apiKey = key; $('#authState').textContent='Authed'; $('#authState').style.background='#22c55e'; save();
+  hydratePrivate(); connectWS(true);
+};
+$('#btnReconnectWS').onclick = ()=> connectWS(true);
+$$('.tab').forEach(t=> t.onclick = ()=>{ $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); $$('.section').forEach(s=> s.classList.remove('active')); $('#sec-'+t.dataset.tab).classList.add('active'); });
+$('#btnClaim').onclick = ()=>{ if(!state.selected) return alert('Select a node'); if(!state.authed) return alert('Authenticate first'); alert('Claimed '+state.selected.name+' (demo)'); };
+
+  /***********************
+   * 3) Vector tiles (MapLibre) with interactive markers
+   ***********************/
+  let map;
+  const initialView = { center: [-2, 54], zoom: 5.3, pitch: 45, bearing: -10 };
+
+  function initMap(){
+    const worldEl = document.getElementById('world');
+    // ensure container has absolute layout from CSS
+    map = new maplibregl.Map({
+      container: worldEl,
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: initialView.center,
+      zoom: initialView.zoom,
+      pitch: initialView.pitch,
+      bearing: initialView.bearing,
+      attributionControl: false,
+      hash: false
+    });
+    map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), 'top-left');
+    map.on('load', () => {
+      // 3D real terrain via AWS Terrarium tiles (no API key needed)
+      if (!map.getSource('terrain-dem')) {
+        map.addSource('terrain-dem', {
+          type: 'raster-dem',
+          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+          encoding: 'terrarium',
+          tileSize: 256,
+          maxzoom: 15
+        });
+      }
+      map.setTerrain({ source: 'terrain-dem', exaggeration: 1.6 });
+
+      // Atmospheric sky
+      if (!map.getLayer('sky')) {
+        map.addLayer({
+          id: 'sky',
+          type: 'sky',
+          paint: {
+            'sky-type': 'atmosphere',
+            'sky-atmosphere-sun': [0.0, 0.0],
+            'sky-atmosphere-sun-intensity': 12
+          }
+        });
+      }
+
+      // Place markers after terrain is ready
+      addUniversityMarkers();
+
+      // UK outline extruded (plateau) using public countries GeoJSON
+      fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+        .then(r => r.json())
+        .then(geo => {
+          const features = (geo.features || []).filter(f => (f.properties && (f.properties.ADMIN === 'United Kingdom' || f.properties.NAME === 'United Kingdom')));
+          const uk = { type: 'FeatureCollection', features };
+          if (!map.getSource('uk')) {
+            map.addSource('uk', { type: 'geojson', data: uk });
+          }
+          if (!map.getLayer('uk-extrude')) {
+            map.addLayer({
+              id: 'uk-extrude',
+              type: 'fill-extrusion',
+              source: 'uk',
+              paint: {
+                'fill-extrusion-color': '#1e90ff',
+                'fill-extrusion-opacity': 0.45,
+                'fill-extrusion-height': 900,
+                'fill-extrusion-base': 0
+              }
+            });
+          }
+          if (!map.getLayer('uk-outline')) {
+            map.addLayer({
+              id: 'uk-outline',
+              type: 'line',
+              source: 'uk',
+              paint: { 'line-color': '#1e90ff', 'line-width': 2 }
+            });
+          }
+        })
+        .catch(() => {});
+    });
+    // Reset view button
+    const btn = document.getElementById('btnReset');
+    if(btn){ btn.onclick = ()=> map && map.flyTo(initialView); }
+  }
+
+  function addUniversityMarkers(){
+    state.nodes.forEach(n => {
+      const el = document.createElement('div');
+      el.className = 'uni-marker';
+      el.innerHTML = `<div class="pin"></div><div class="label">${n.name}</div>`;
+      el.addEventListener('mouseenter', ()=> el.classList.add('hover'));
+      el.addEventListener('mouseleave', ()=> el.classList.remove('hover'));
+      el.addEventListener('click', ()=> { selectNode(n.id); switchToPrivate(); });
+      new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([n.lon, n.lat])
+        .addTo(map);
+    });
+    document.getElementById('hudTip').textContent = 'Hover to magnify markers · Click to open Private';
+  }
+
+  function switchToPrivate(){
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s=> s.classList.remove('active'));
+    const t = document.querySelector('[data-tab="me"]'); if(t) t.classList.add('active');
+    const s = document.getElementById('sec-me'); if(s) s.classList.add('active');
+  }
+
+/***********************
+ * 4) Co‑create / Private projects + Cards + Eval (same as before)
+ ***********************/
+function hydrateLists(){ const coBox = $('#coList'); if(coBox){ coBox.innerHTML=''; state.projects.co.forEach(p=> coBox.appendChild(renderItem(p))); } hydratePrivate(); }
+function hydratePrivate(){ const meBox = $('#meList'); if(!meBox) return; meBox.innerHTML=''; const key = state.apiKey || 'guest'; (state.projects.me[key]||[]).forEach(p=> meBox.appendChild(renderItem(p))); }
+
+function renderItem(p){
+  const el = document.createElement('div'); el.className='item';
+  const evalBadge = p.eval?.status ? `<span class="tag">Eval: ${p.eval.status}${p.eval.score!=null? ' · '+p.eval.score:''}</span>` : '';
+  const cards = [p.simCard?'Sim':'' , p.evalCard?'Eval':'' , p.datasetCard?'Dataset':''].filter(Boolean).map(t=>`<span class='tag'>${t} Card</span>`).join('');
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="font-weight:700">${escapeHtml(p.name)}</div>
+      <span class="tag">${p.scope==='co'?'Co‑create':'Private'}</span>
+    </div>
+    <div class="meta">${p.node||'—'} · ${new Date(p.ts).toLocaleString()}</div>
+    <div>${escapeHtml(p.desc||'')}</div>
+    <div class="tags">${(p.tags||[]).map(t=>`<span class='tag'>${escapeHtml(t)}</span>`).join('')} ${cards} ${evalBadge}</div>
+    <div class="kv" style="gap:8px;flex-wrap:wrap">
+      ${p.link? `<a class="btn a" href="${p.link}" target="_blank" rel="noopener">Open Link</a>`:''}
+      ${p.htmlUrl? `<button class="btn ghost" data-open="${p.id}">Open UR Console</button>`:''}
+      <button class="btn ghost" data-hash="${p.id}">Hashes</button>
+      <button class="btn primary" data-eval="${p.id}">Run Eval</button>
+    </div>`;
+  if(p.htmlUrl){ el.querySelector('[data-open]')?.addEventListener('click',()=> openUR(p)); }
+  el.querySelector('[data-hash]')?.addEventListener('click',()=> alert('Hashes\n'+(p.hashes||[]).join('\n')));
+  el.querySelector('[data-eval]')?.addEventListener('click',()=> startEval(p));
+  return el;
+}
+
+function openUR(p){ $('#urTitle').textContent = p.name; $('#urFrame').src = p.htmlUrl; $('#urModal').classList.add('show'); }
+$('#urClose').onclick = ()=> $('#urModal').classList.remove('show');
+
+$('#btnNewCo').onclick = ()=> openProjectModal('co');
+$('#btnNewMe').onclick = ()=> openProjectModal('me');
+$('#tplCo').addEventListener('change', (e)=> importTemplate(e, 'co'));
+$('#tplMe').addEventListener('change', (e)=> importTemplate(e, 'me'));
+
+function openProjectModal(scope){ if(scope==='me' && !state.authed){ alert('Private space requires authentication'); return; } $('#modal').classList.add('show'); $('#modalTitle').textContent = scope==='co'? 'Publish Co‑create Project':'New Private Project'; $('#pScope').value = scope; $('#pName').value=''; $('#pTags').value=''; $('#pDesc').value=''; $('#pLink').value=''; $('#pHtml').value=''; $('#pFileA').value=''; $('#pFileB').value=''; $('#pSim').value=''; $('#pEval').value=''; $('#pData').value=''; $('#pNode').value = state.selected?.id || ''; }
+$('#modalClose').onclick = ()=> $('#modal').classList.remove('show');
+
+async function toHash(file){ if(!file) return null; const buf = await file.arrayBuffer(); const hash = await crypto.subtle.digest('SHA-256', buf); return Array.from(new Uint8Array(hash)).map(b=> b.toString(16).padStart(2,'0')).join(''); }
+$('#pSave').onclick = async ()=>{ if(!state.selected && !$('#pNode').value){ alert('Select a node on the left or fill University field'); return; } const scope = $('#pScope').value; const name = $('#pName').value.trim(); if(!name) return alert('Enter project name'); const tags = $('#pTags').value.split(',').map(s=>s.trim()).filter(Boolean); const desc = $('#pDesc').value.trim(); const link = $('#pLink').value.trim(); const fileHtml = $('#pHtml').files[0]; const fileA = $('#pFileA').files[0]; const fileB = $('#pFileB').files[0]; const simF = $('#pSim').files[0]; const evalF = $('#pEval').files[0]; const dataF = $('#pData').files[0]; const hashes = []; if(fileA){ hashes.push(await toHash(fileA)); } if(fileB){ hashes.push(await toHash(fileB)); }
+  const p = { id: 'p'+Math.random().toString(36).slice(2,8), scope, name, tags, desc, link, ts:Date.now(), node: ($('#pNode').value||state.selected?.id), hashes };
+  if(fileHtml){ p.htmlUrl = URL.createObjectURL(fileHtml); }
+  if(simF){ p.simCard = await readJson(simF); }
+  if(evalF){ p.evalCard = await readJson(evalF); }
+  if(dataF){ p.datasetCard = await readJson(dataF); }
+  if(scope==='co') state.projects.co.unshift(p); else { const key = state.apiKey || 'guest'; state.projects.me[key] = state.projects.me[key]||[]; state.projects.me[key].unshift(p); }
+  state.tlog.push({ ts:Date.now(), node:p.node, scope, name, hashes, evt:'project.save' }); save(); $('#modal').classList.remove('show'); hydrateLists(); renderLog(); };
+
+async function readJson(f){ try{ return JSON.parse(await f.text()); }catch{return null;} }
+async function importTemplate(e, scope){ const f = e.target.files[0]; if(!f) return; const tpl = await readJson(f); if(!tpl || !tpl.name) return alert('Invalid template'); const p = { id:'p'+Math.random().toString(36).slice(2,8), scope, ts:Date.now(), node: state.selected?.id, name: tpl.name, tags: tpl.tags||[], desc: tpl.desc||'', link: tpl.link||'', simCard: tpl.simCard||null, evalCard: tpl.evalCard||null, datasetCard: tpl.datasetCard||null, hashes: tpl.hashes||[] }; if(scope==='co') state.projects.co.unshift(p); else { const key = state.apiKey || 'guest'; state.projects.me[key] = state.projects.me[key]||[]; state.projects.me[key].unshift(p); } state.tlog.push({ ts:Date.now(), node:p.node, scope, name:p.name, hashes:p.hashes, evt:'template.import' }); save(); hydrateLists(); renderLog(); e.target.value=''; }
+
+// Evaluation (same mechanics)
+async function startEval(p){ if(!state.evalApi){ alert('Set Eval API base in the top bar'); return; } try{ p.eval = {status:'queued'}; hydrateLists(); const res = await fetch(state.evalApi.replace(/\/$/, '') + '/api/eval/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ projectId:p.id, nodeId:p.node, apiKey: state.apiKey||'guest', callbackUrl: state.evalApi.replace(/\/$/, '') + '/api/callback' }) }); const data = await res.json().catch(()=>({})); if(!res.ok){ throw new Error(data?.error||('HTTP '+res.status)); } p.eval.jobId = data.jobId || ('job_'+Math.random().toString(36).slice(2,8)); p.eval.status='queued'; state.tlog.push({ ts:Date.now(), node:p.node, scope:p.scope, name:p.name, evt:'eval.start', job:p.eval.jobId }); save(); hydrateLists(); renderLog(); }catch(err){ alert('Eval start failed: '+err.message); p.eval={status:'error'}; hydrateLists(); } }
+function onEvalUpdate(msg){ const all = [ ...state.projects.co, ...Object.values(state.projects.me).flat() ]; const p = all.find(x=> x.id===msg.projectId); if(!p) return; p.eval = p.eval||{}; p.eval.status = msg.status || p.eval.status; if(msg.score!=null) p.eval.score = msg.score; state.tlog.push({ ts:Date.now(), node:p.node, scope:p.scope, name:p.name, evt:'eval.update', status:p.eval.status, score:p.eval.score }); save(); hydrateLists(); renderLog(); }
+
+/***********************
+ * 5) Transparency log
+ ***********************/
+function renderLog(){ const box = $('#logBox'); box.innerHTML=''; if(!state.tlog.length){ box.textContent = 'No records yet.'; return; } state.tlog.slice().reverse().forEach(r=>{ const line = document.createElement('div'); line.textContent = `[${new Date(r.ts).toLocaleString()}] evt=${r.evt||'save'} node=${r.node} scope=${r.scope} name=${r.name} job=${r.job||''} status=${r.status||''} score=${r.score??''} hashes=${(r.hashes||[]).join(', ')}`; box.appendChild(line); }); }
+$('#btnExportLog').onclick = ()=>{ const blob = new Blob([JSON.stringify(state.tlog,null,2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='transparency-log.json'; a.click(); URL.revokeObjectURL(url); };
+
+/***********************
+ * 6) Welcome & cover
+ ***********************/
+const welcome = $('#welcome');
+$('#btnWelcome').onclick = ()=> welcome.classList.add('show');
+$('#goEnter').onclick = ()=> welcome.classList.remove('show');
+if(!localStorage.getItem('uni3d_seen_v2')){ welcome.classList.add('show'); localStorage.setItem('uni3d_seen_v2','1'); }
+
+/***********************
+ * 7) WebSocket: chat + eval updates
+ ***********************/
+function connectWS(force){ if(state.ws && !force) return; try{ state.ws?.close(); }catch{} if(!state.wsUrl){ return; } const ws = new WebSocket(state.wsUrl); state.ws = ws; ws.onopen = ()=>{ ws.send(JSON.stringify({type:'hello', apiKey: state.apiKey||'guest'})); joinChatRoom(); }; ws.onmessage = (ev)=>{ try{ const msg = JSON.parse(ev.data); if(msg.type==='chat'){ onChat(msg); } else if(msg.type==='evalUpdate'){ onEvalUpdate(msg); } }catch{} }; }
+function joinChatRoom(){ if(!state.ws || !state.selected) return; state.ws.send(JSON.stringify({type:'join', room: state.selected.id})); }
+function onChat(msg){ if(!msg.room) return; state.chat[msg.room] = state.chat[msg.room]||[]; state.chat[msg.room].push(msg); if(msg.room === state.selected?.id) renderChat(); }
+function renderChat(){ const box = $('#chatBox'); if(!box) return; const room = state.selected?.id; box.innerHTML=''; if(!room) return; const list = state.chat[room]||[]; list.slice(-200).forEach(m=>{ const d=document.createElement('div'); d.className='chatmsg'; const who=document.createElement('span'); who.className='who'; who.textContent = (m.user||'anon')+':'; const text=document.createElement('span'); text.textContent=m.text; d.appendChild(who); d.appendChild(text); box.appendChild(d); }); box.scrollTop = box.scrollHeight; }
+$('#btnSendChat').onclick = ()=>{ const input = $('#chatInput'); const text = input.value.trim(); if(!text) return; const room = state.selected?.id; if(!room){ alert('Select a node first'); return; } const msg = {type:'chat', room, user:(state.apiKey? ('user-'+state.apiKey.slice(0,6)):'guest'), text, ts:Date.now()}; if(state.ws){ state.ws.send(JSON.stringify(msg)); } onChat(msg); input.value=''; };
+
+/***********************
+ * 8) Utils & boot
+ ***********************/
+function escapeHtml(s){ const map = {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}; return (s ?? '').replace(/[&<>"']/g, ch => map[ch]); }
+function selectNode(id){ const node = state.nodes.find(n=> n.id===id); if(!node) return; state.selected = node; $('#nodeTitle').textContent = node.name; $('#nodeId').textContent = node.id; $('#nodeMembers').textContent = node.members+' people'; $('#hudTip').textContent = 'Selected '+node.name+' · opened Private'; hydrateLists(); joinChatRoom(); renderChat(); }
+
+initMap();
+renderLog();
+</script>
+</body>
+</html>
