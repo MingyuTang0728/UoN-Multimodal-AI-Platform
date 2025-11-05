@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UR5e CSV Player + Native GLB Rig (Ops Console)</title>
+<style>
+:root{
+  --bg:#0b1015; --panel:#0f171f; --muted:#89a1b3; --text:#e6f0f6;
+  --grid:#17242e; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+  --shadow:0 10px 30px rgba(0,0,0,.35); --r:16px
+}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;background:transparent;border:none;border-radius:0;padding:6px 8px;box-shadow:none;margin-bottom:6px}
+.topbar .title{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.25px}
+.logos{display:flex;align-items:center;gap:12px}
+.logo{height:96px;mix-blend-mode:normal;filter:contrast(1.15) brightness(1.25);opacity:1}
+/* Make UoN logo white on dark bg + soft glow; boost RR clarity */
+.logo-uon{filter:invert(1) saturate(0) brightness(1.6) contrast(1.2) drop-shadow(0 0 2px rgba(255,255,255,0.25)); mix-blend-mode:normal}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,Inter,Roboto,Arial}
+.wrap{max-width:1400px;margin:18px auto;padding:0 16px}
+.btn{background:#12212a;border:1px solid #20323d;color:#cfe3f0;padding:8px 12px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow)}
+.btn:hover{filter:brightness(1.07)}
+.btn.success{background:#10331d;border-color:#1b4d2a;color:#bff6d2}
+.ctlbar{display:flex;gap:10px;align-items:center;margin:10px 0;padding:8px 10px;background:#0f171f;border:1px solid #1b2a34;border-radius:12px;box-shadow:var(--shadow)}
+.ctlbar input[type=file]{display:none}
+.ctlbar .range{flex:1}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+.card{background:var(--panel);border:1px solid #1b2a34;border-radius:var(--r);box-shadow:var(--shadow)}
+.card .body{padding:14px 16px}
+.card h3{margin:0 0 8px 0;font-size:14px}
+.viz{position:relative;overflow:hidden}
+.canvas{height:640px;position:relative;background:#0a0f14}
+#stage{position:absolute;inset:0}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.kv div{display:flex;justify-content:space-between;padding:6px 8px;border-radius:8px;background:#0e161c;border:1px solid #1a2833}
+.muted{color:var(--muted)}
+.badge{padding:4px 8px;border-radius:999px;background:#0f2a18;border:1px solid #184c2f;color:#baf4cf;font-weight:700}
+.alert{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid #3a2430;background:linear-gradient(180deg,#23131b,#1a0f15)}
+.log{max-height:200px;overflow:auto;border-top:1px solid #1c2a34;margin-top:8px}
+.row{display:grid;grid-template-columns:110px 84px 1fr;gap:12px;padding:8px 10px;border-bottom:1px dashed #1a2833}
+
+.ctlpanel{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+  gap:12px 14px;
+  align-items:start;
+  background:#0c141b;border:1px solid #1a2933;border-radius:10px;
+  padding:10px;margin:8px 12px
+}
+.ctlpanel input,.ctlpanel select{width:100%;background:#0a1218;border:1px solid #1a2833;border-radius:8px;color:#cfe3f0;padding:4px 6px}
+.ctlpanel label{display:flex;gap:6px;align-items:center;justify-content:space-between}
+  .ctlgroup{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(120px,1fr));
+    grid-auto-rows:minmax(36px,auto);
+    gap:8px 10px;
+    padding:10px;border:1px solid #1a2933;border-radius:10px;background:#0a1218;
+    position:relative; overflow:visible;
+  }
+.ctlgroup .switchRow{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:6px 0;width:100%}
+.ctlgroup .switchRow span{white-space:normal}
+.ctlgroup .groupTitle{grid-column:1/-1;font-weight:700;color:#a9c7d9;margin-bottom:2px}
+.ctlgroup .fullrow{grid-column:1/-1}
+.ctlgroup label.fullrow{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.ctlgroup label{white-space:normal}
+.ctlgroup>*{min-height:36px}
+.pcViewport .pcCaption{position:absolute;top:8px;left:8px;font-size:12px;color:#9ad1ff;background:rgba(0,0,0,.35);padding:4px 6px;border:1px solid #1e2f3a;border-radius:8px;z-index:2;pointer-events:none}
+
+.tree{max-height:220px;overflow:auto;padding:8px;background:#0c141b;border:1px solid #1a2933;border-radius:10px}
+.tree details{padding:4px 0}
+.tree label{display:flex;align-items:center;gap:8px}
+
+.pcRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.pcRow input[type=file]{display:none}
+.bookmarks{display:flex;gap:8px;flex-wrap:wrap}
+.tag{background:#10222c;border:1px solid #1c3a44;padding:4px 8px;border-radius:999px;cursor:pointer}
+.chartWrap{height:260px}
+.pcViewport{
+  height: 320px;
+  background:#0a0f14;
+  border:1px solid #1b2a34;
+  border-radius:12px;
+  margin-top:10px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.pcViewport canvas{ display:block; }
+
+#sceneGroup, #motionGroup{ min-height:220px; }
+#pcGroup, #tfCtlGroup{ min-height:220px; }
+
+.ctlpanel input[type="checkbox"],
+.ctlpanel input[type="radio"]{ width:auto; flex:0 0 auto; }
+
+.ctlgroup label.fullrow,
+.tree label{ justify-content:flex-start; gap:8px; }
+.ctlgroup .switchRow input[type="checkbox"]{ width:auto; margin-right:6px; }
+
+#sceneGroup{ grid-template-columns:repeat(2, minmax(80px, auto)); justify-content:flex-start; }
+#sceneGroup .btn{ padding:4px 8px; font-size:11px; min-width:80px; }
+
+.tree{ max-height:260px; overflow:auto; font-size:12.5px; line-height:1.35; color:var(--text); }
+.tree input[type="checkbox"]{ width:auto; flex:0 0 auto; }
+
+.pcRow label{ display:flex; align-items:center; gap:6px; }
+.pcRow input[type="checkbox"]{ width:auto; }
+
+@media (max-width:1100px){ .grid{ grid-template-columns:1fr } }
+
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/PCDLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/PLYLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <img class="logo logo-uon" src="UoN-Nottingham-Blue.png" alt="University of Nottingham">
+  </div>
+
+  <div class="ctlbar">
+    <label class="btn" for="csvFile">Load CSV</label>
+    <input id="csvFile" type="file" accept=".csv" />
+    <button class="btn success" id="playBtn">Play</button>
+    <button class="btn" id="pauseBtn">Pause</button>
+    <input class="range" id="seek" type="range" min="0" max="1000" value="0" />
+    <select class="btn" id="speed">
+      <option>0.25</option><option>0.5</option><option selected>1</option>
+      <option>1.5</option><option>2</option><option>3</option>
+      <option>5</option><option>10</option><option>15</option><option>20</option>
+      <option>25</option><option>30</option>
+    </select>
+    <span class="muted" id="timeInfo">00:00.0 / 00:00.0</span>
+    <label class="btn" for="gltfFile" style="margin-left:auto">Load GLTF/GLB</label>
+    <input id="gltfFile" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" />
+  </div>
+
+  <div class="grid">
+    <div class="card viz">
+      <div class="body"><h3>3D Stage</h3></div>
+      <div class="canvas" id="vizCanvas"><div id="stage"></div></div>
+
+      <div class="ctlpanel" id="ctlpanel">
+        <div class="ctlgroup">
+          <div class="groupTitle">Transform</div>
+          <label>Scale <input id="modelScale" type="number" step="0.01" value="0.05"></label>
+          <label>X <input id="modelX" type="number" step="0.01" value="0"></label>
+          <label>Y <input id="modelY" type="number" step="0.01" value="-0.18"></label>
+          <label>Z <input id="modelZ" type="number" step="0.01" value="0"></label>
+          <label>Yaw <input id="modelYaw" type="number" step="1" value="90"></label>
+          <label>OriginY <input id="originY" type="number" step="0.01" value="-0.25" title="Shift entire stage origin vertically"></label>
+        </div>
+
+        <div class="ctlgroup">
+          <div class="groupTitle">Calibration</div>
+          <button class="btn fullrow" id="calibFirst">Calib=1st</button>
+          <label>Signs <input id="calibSigns" type="text" value="1,1,1,1,1,1" title="Signs for J1..J6"></label>
+          <label>Offset° <input id="calibOffsets" type="text" value="0,-90,0,-90,0,0" title="Offsets(deg) for J1..J6"></label>
+          <label>Axes <input id="axisSpec" type="text" value="z,y,y,y,y,y" title="Axis per joint (x/y/z)"></label>
+          <label>Map <input id="mapSpec" type="text" value="1,2,3,4,5,6" title="Remap CSV J columns to rig order"></label>
+        </div>
+
+        <div class="ctlgroup" id="motionGroup">
+          <div class="groupTitle">Motion</div>
+          <label>Interp
+            <select id="interpSel">
+              <option value="linear">Linear</option>
+              <option value="cubic" selected>Cubic</option>
+            </select>
+          </label>
+          <label class="fullrow"><input type="checkbox" id="smoothChk" checked> Smooth</label>
+          <label class="fullrow"><input type="checkbox" id="loopChk" checked> Loop</label>
+          <label class="fullrow"><input type="checkbox" id="pingChk"> Ping–pong</label>
+          <label class="fullrow">Seam blend % <input id="seamBlend" type="range" min="0" max="40" step="1" value="15"></label>
+          <label class="fullrow">Smooth α <input id="smoothAlpha" type="range" min="0" max="1" step="0.01" value="0.22"></label>
+          <button class="btn" id="trailBtn">Trail</button>
+          <button class="btn" id="preTrailBtn" title="Compute full TCP trail now">Precompute Trail</button>
+        </div>
+
+        <div class="ctlgroup" id="sceneGroup">
+          <div class="groupTitle">Scene</div>
+          <button class="btn" id="gridBtn">Grid</button>
+          <button class="btn" id="floorBtn">Floor</button>
+          <label>Ambient <input id="ambInt" type="range" min="0" max="2.5" step="0.05" value="1.0"></label>
+          <label>Key <input id="keyInt" type="range" min="0" max="3.5" step="0.05" value="2.2"></label>
+          <label class="fullrow">Grid × <input id="gridScale" type="range" min="0.2" max="5" step="0.1" value="1"></label>
+          <button class="btn" id="viewIsoBtn">Iso</button>
+          <button class="btn" id="viewTopBtn">Top</button>
+          <button class="btn" id="viewSideBtn">Side</button>
+          <button class="btn" id="resetViewBtn">Reset</button>
+        </div>
+
+        <div class="ctlgroup" id="pcGroup">
+          <div class="groupTitle">Mesh → Point Cloud</div>
+          <label>Mesh→PC pts <input id="rigPcCount" type="number" step="1000" value="30000"></label>
+          <button class="btn" id="rigPcGenBtn">Gen PC</button>
+          <label class="switchRow fullrow"><input type="checkbox" id="rigPcVisible" checked><span>Show Mesh-PC</span></label>
+          <button class="btn" id="rigPcExportPly">Export PLY</button>
+          <button class="btn" id="rigPcExportXyz">Export XYZ</button>
+        </div>
+
+        <div class="ctlgroup" id="tfCtlGroup">
+          <div class="groupTitle">TF / Link Tree</div>
+          <label class="fullrow"><input type="checkbox" id="lockBaseChk"> <span>Lock base</span></label>
+          <label class="fullrow"><input type="checkbox" id="showAxesChk"> <span>Show axes gizmos</span></label>
+          <div class="fullrow tree" id="tfTree"><div class="muted">No model loaded — load a GLB to populate the link tree.</div></div>
+        </div>
+      </div>
+
+      <div class="body" style="padding-top:8px">
+        <span class="muted">Axes: X,Y,Z</span> &nbsp; <span id="tcpLabel" class="badge">TCP: —</span>
+      </div>
+    </div>
+
+    <div class="card"><div class="body">
+      <h3>ROBOT ARM <span class="badge" id="robotState">RUN</span></h3>
+      <div class="kv">
+        <div><small>J1</small><span id="j1">--</span></div>
+        <div><small>J2</small><span id="j2">--</span></div>
+        <div><small>J3</small><span id="j3">--</span></div>
+        <div><small>J4</small><span id="j4">--</span></div>
+        <div><small>J5</small><span id="j5">--</span></div>
+        <div><small>J6</small><span id="j6">--</span></div>
+      </div>
+      <div class="muted" id="robotMode">Mode Auto</div>
+      <hr style="border-color:#1b2a34;border-style:solid;border-width:1px 0 0;margin:10px 0">
+
+      <h3>IMU</h3>
+      <div class="kv">
+        <div><small>R</small><span id="imu_r">—</span></div>
+        <div><small>P</small><span id="imu_p">—</span></div>
+        <div><small>Y</small><span id="imu_y">—</span></div>
+        <div><small>Temp</small><span id="imu_t">—</span></div>
+      </div>
+
+      <h3 style="margin-top:10px">FBG</h3>
+      <div class="kv" id="fbgBox"></div>
+
+      <hr style="border-color:#1b2a34;border-style:solid;border-width:1px 0 0;margin:10px 0">
+      <h3>LiDAR</h3>
+      <div class="kv">
+        <div><small>Points</small><span id="lidar_pts">—</span></div>
+        <div><small>RPM</small><span id="lidar_rpm">—</span></div>
+      </div>
+
+      <h3 style="margin-top:10px">Acoustic</h3>
+      <div class="kv">
+        <div><small>Mic dB</small><span id="mic_db">—</span></div>
+        <div><small>Band</small><span id="mic_band">—</span></div>
+      </div>
+
+      <h3 style="margin-top:10px">Vision</h3>
+      <div class="kv">
+        <div><small>Frame</small><span id="cam_frame">—</span></div>
+        <div><small>FPS</small><span id="cam_fps">—</span></div>
+      </div>
+      <div id="pcViewport" class="pcViewport"><div class="pcCaption">Live Point Cloud (mesh→PC)</div></div>
+
+      <div class="pcRow" style="margin-top:10px">
+        <h3 style="margin:0">Point Cloud Controls</h3>
+      </div>
+      <div class="pcRow">
+        <label class="btn" for="pcFile">Load PCD/PLY</label>
+        <input id="pcFile" type="file" accept=".pcd,.ply,.xyz,.txt" />
+        <button class="btn" id="pcClear">Clear</button>
+      </div>
+      <div class="pcRow">
+        <label>Point size <input id="pcSize" type="range" min="0.5" max="6" step="0.1" value="2"></label>
+        <label>Decimate <input id="pcDecim" type="range" min="1" max="20" step="1" value="1"></label>
+        <label><input type="checkbox" id="pcToggle" checked> Visible</label>
+      </div>
+      <div class="pcRow">
+        <label>Scale <input id="pcScale" type="number" step="0.01" value="1.0"></label>
+        <label>X <input id="pcX" type="number" step="0.01" value="0.0"></label>
+        <label>Y <input id="pcY" type="number" step="0.01" value="0.0"></label>
+        <label>Z <input id="pcZ" type="number" step="0.01" value="0.0"></label>
+        <button class="btn" id="pcFit">Fit</button>
+      </div>
+      <div class="muted">Tip: heavy clouds → increase Decimate (keep every N points). Use Scale/X/Y/Z to align.</div>
+    </div></div>
+
+
+    <div class="card" style="grid-column:1/span 2"><div class="body">
+      <h3>Joint Curves</h3>
+      <div class="chartWrap"><canvas id="jointChart"></canvas></div>
+      <div class="bookmarks" id="bmBox"></div>
+      <div style="margin-top:8px">
+        <button class="btn" id="addBm">Add Bookmark</button>
+        <button class="btn" id="clearBm">Clear Bookmarks</button>
+      </div>
+    </div></div>
+
+    <div class="card" style="grid-column:1/span 2"><div class="body">
+      <h3>Events</h3>
+      <div class="alert" id="anomalyBanner">
+        <div style="width:22px;height:22px;border-radius:50%;background:#ef4444;display:grid;place-items:center;color:#111">!</div>
+        <div><strong>Ready. Load CSV and GLB. (GLB rig is authoritative)</strong></div>
+      </div>
+      <div class="log" id="log"></div>
+    </div></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const logEl = $('log');
+function addLog(ts, level, msg){
+  const row = document.createElement('div'); row.className='row';
+  row.innerHTML = `<div class="muted">${ts}</div><div class="muted">${level}</div><div>${msg}</div>`;
+  logEl.prepend(row); while(logEl.children.length>18) logEl.removeChild(logEl.lastChild);
+}
+
+let scene, camera, renderer, stageGroup, robotRoot, grid, floor, hdrLight, keyLight, fillLight;
+let pcRenderer = null, pcCamera = null;
+let jointNodes = [];
+let tcpNode = null;
+let axisSel = ['z','y','y','y','y','y'];
+let JOINT_OFFSETS=[0,-Math.PI/2,0,-Math.PI/2,0,0];
+let JOINT_SIGNS=[1,1,1,1,1,1];
+let MAP=[0,1,2,3,4,5];
+let csvDt = 0.02;
+let tEnd_ts = 0, tEnd_idx = 0;
+
+let currentModel = null;
+let rigPointClouds = [];
+
+function init3D(){
+  const host = $('stage');
+  const w = host.clientWidth || host.parentElement.clientWidth;
+  const h = host.clientHeight || 640;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(50, w/h, 0.01, 200);
+  camera.position.set(1.2,0.9,1.6); camera.lookAt(0,0.3,0);
+
+  renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setSize(w,h);
+  renderer.setPixelRatio(window.devicePixelRatio||1);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  host.appendChild(renderer.domElement);
+
+  stageGroup = new THREE.Group();
+  scene.add(stageGroup);
+  const oyInit = parseFloat(document.getElementById('originY')?.value || -0.25);
+  stageGroup.position.y = isFinite(oyInit) ? oyInit : 0;
+
+  initPcViewport();
+
+  hdrLight = new THREE.AmbientLight(0xffffff, 1.0); scene.add(hdrLight);
+  keyLight = new THREE.SpotLight(0xffffff, 2.2, 0, Math.PI/6, 0.35, 1); keyLight.position.set(2,2,2); scene.add(keyLight);
+  fillLight= new THREE.DirectionalLight(0xffffff, 1.2); fillLight.position.set(-2,1.2,-1.2); scene.add(fillLight);
+
+  const tex = (()=>{
+    const c=document.createElement('canvas'); c.width=256; c.height=256;
+    const g=c.getContext('2d'); g.fillStyle='#0f1419'; g.fillRect(0,0,256,256);
+    g.strokeStyle='#26333d'; g.lineWidth=1;
+    for(let i=0;i<=16;i++){ const t=i*16; g.beginPath(); g.moveTo(t,0); g.lineTo(t,256); g.stroke(); g.beginPath(); g.moveTo(0,t); g.lineTo(256,t); g.stroke(); }
+    const t= new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(12,12); return t;
+  })();
+  floor = new THREE.Mesh(new THREE.PlaneGeometry(30,18), new THREE.MeshStandardMaterial({map:tex, metalness:0.3, roughness:0.8}));
+  floor.rotation.x = -Math.PI/2; floor.position.y = -0.0002; stageGroup.add(floor);
+  floor.visible = false;
+
+  grid = new THREE.GridHelper(3, 60, 0x1d2a33, 0x11202a); grid.position.y=-0.0001; grid.visible=false; stageGroup.add(grid);
+  $('gridBtn').addEventListener('click', ()=>{ grid.visible = !grid.visible; });
+  $('floorBtn').addEventListener('click', ()=>{ floor.visible = !floor.visible; });
+
+  const canvas = renderer.domElement;
+  const target = new THREE.Vector3(0,0.25,0);
+  const sph = new THREE.Spherical(2.0, 1.0, 0.9);
+  function updateCam(){ const p=new THREE.Vector3().setFromSpherical(sph).add(target); camera.position.copy(p); camera.lookAt(target); }
+  updateCam(); let isDrag=false,lastX=0,lastY=0;
+  window._orbit = {sph, target, updateCam};
+  canvas.addEventListener('mousedown',e=>{isDrag=true;lastX=e.clientX;lastY=e.clientY;});
+  window.addEventListener('mousemove',e=>{ if(!isDrag) return; const dx=e.clientX-lastX,dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; sph.theta-=dx*0.005; sph.phi=Math.min(Math.max(0.1, sph.phi-dy*0.005), Math.PI-0.1); updateCam();});
+  window.addEventListener('mouseup',()=>{isDrag=false});
+  canvas.addEventListener('wheel',e=>{ e.preventDefault(); const s=Math.exp(e.deltaY*0.001); sph.radius=Math.max(0.4,Math.min(8.0,sph.radius*s)); updateCam(); }, {passive:false});
+
+  robotRoot = new THREE.Group(); stageGroup.add(robotRoot);
+
+  document.getElementById('originY')?.addEventListener('input', (e)=>{
+    if(stageGroup){
+      const v = parseFloat(e.target.value || 0);
+      stageGroup.position.y = isFinite(v) ? v : 0;
+    }
+  });
+
+  (function render(){
+    requestAnimationFrame(render);
+    renderer.render(scene,camera);
+    if(pcRenderer && pcCamera){
+      pcCamera.position.copy(camera.position);
+      pcCamera.quaternion.copy(camera.quaternion);
+      pcCamera.projectionMatrix.copy(camera.projectionMatrix);
+      pcCamera.layers.set(1);
+      pcCamera.layers.enable(2);
+      pcRenderer.render(scene, pcCamera);
+    }
+  })();
+}
+init3D();
+
+(function(){
+  const amb = $('ambInt'), key = $('keyInt'), gs = $('gridScale');
+  if(amb) amb.addEventListener('input', e=> { if(hdrLight) hdrLight.intensity = Number(e.target.value); });
+  if(key) key.addEventListener('input', e=> { if(keyLight) keyLight.intensity = Number(e.target.value); });
+  if(gs) gs.addEventListener('input', e=> { if(grid) grid.scale.setScalar(Number(e.target.value)); });
+
+  function setView(r,phi,theta){
+    const o = window._orbit; if(!o) return; o.sph.radius=r; o.sph.phi=phi; o.sph.theta=theta; o.updateCam();
+  }
+  const iso=$('viewIsoBtn'), topv=$('viewTopBtn'), side=$('viewSideBtn'), reset=$('resetViewBtn');
+  if(iso) iso.addEventListener('click', ()=> setView(2.0,1.0,0.9));
+  if(topv) topv.addEventListener('click', ()=> setView(1.4,0.15,0.0));
+  if(side) side.addEventListener('click', ()=> setView(1.8,1.2,0.0));
+  if(reset) reset.addEventListener('click', ()=> { setView(2.0,1.0,0.9); if(grid) grid.visible=false; if(floor) floor.visible=false; });
+})();
+
+function initPcViewport(){
+  const host = document.getElementById('pcViewport');
+  if(!host) return;
+  const w = host.clientWidth || 420;
+  const h = host.clientHeight || 320;
+  pcCamera = new THREE.PerspectiveCamera(50, w/h, 0.01, 200);
+  pcRenderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  pcRenderer.setSize(w,h);
+  pcRenderer.setPixelRatio(window.devicePixelRatio||1);
+  host.appendChild(pcRenderer.domElement);
+  pcCamera.layers.enable(1);
+  pcCamera.layers.enable(2);
+}
+window.addEventListener('resize', ()=>{
+  if(renderer){
+    const host = document.getElementById('stage');
+    const w = host.clientWidth || (host.parentElement ? host.parentElement.clientWidth : 800);
+    const h = host.clientHeight || 640;
+    renderer.setSize(w,h);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  const pvc = document.getElementById('pcViewport');
+  if(pcRenderer && pvc){
+    const w2 = pvc.clientWidth || 420;
+    const h2 = pvc.clientHeight || 320;
+    pcRenderer.setSize(w2,h2);
+    if(pcCamera){ pcCamera.aspect = w2/h2; pcCamera.updateProjectionMatrix(); }
+  }
+});
+
+const $now = ()=> new Date().toLocaleTimeString();
+
+function findExactNode(root, names){
+  const want = names.map(n=>n.toLowerCase());
+  const q=[root]; let cand=null;
+  while(q.length){
+    const n=q.shift(); const nm=(n.name||'').toLowerCase();
+    if(want.includes(nm)) return n;
+    if(!cand && want.some(w=> nm.includes(w))) cand=n;
+    for(const c of (n.children||[])) q.push(c);
+  }
+  return cand;
+}
+function hasMeshDesc(n){ const q=[n]; while(q.length){ const t=q.shift(); if(t.isMesh) return true; for(const c of (t.children||[])) q.push(c);} return false; }
+function findJointNode(root, aliases){
+  const exact = findExactNode(root, aliases);
+  if(exact && /(joint|bone)/i.test(exact.name)) return exact;
+  const q=[root]; while(q.length){
+    const n=q.shift(); const nm=(n.name||'').toLowerCase();
+    if((/(joint|bone)/.test(nm)) && aliases.some(a=> nm.includes(a.toLowerCase()))) return n;
+    for(const c of (n.children||[])) q.push(c);
+  }
+  return exact;
+}
+function findLinkNode(root, aliases){
+  const exact = findExactNode(root, aliases);
+  if(exact && hasMeshDesc(exact)) return exact;
+  const q=[root]; let best=null;
+  while(q.length){
+    const n=q.shift(); const nm=(n.name||'').toLowerCase();
+    if(aliases.some(a=> nm===a.toLowerCase() || nm.includes(a.toLowerCase())) && hasMeshDesc(n)) { best=n; break; }
+    for(const c of (n.children||[])) q.push(c);
+  }
+  return best || exact;
+}
+function isDescendant(ancestor, node){ if(!ancestor||!node) return false; let p=node.parent; while(p){ if(p===ancestor) return true; p=p.parent;} return false; }
+function reattachRig(model){
+  const CHILD_LINK_KEYS = [
+    ['shoulder_link','link2','upper_arm','shoulder'],
+    ['upper_arm_link','link3','upperarm'],
+    ['forearm_link','link4','forearm'],
+    ['wrist_1_link','link5','wrist1'],
+    ['wrist_2_link','link6','wrist2'],
+    ['wrist_3_link','flange','tool0','ee_link','tcp','wrist3']
+  ];
+  const attachedPairs = [];
+  for(let i=0;i<6;i++){
+    const joint = jointNodes[i]; if(!joint) continue;
+    const link = findLinkNode(model, CHILD_LINK_KEYS[i] || []); if(!link) continue;
+    if(isDescendant(joint, link)){ attachedPairs.push(`${joint.name||('J'+(i+1))} ⇐ (kept) ${link.name}`); continue; }
+    link.updateWorldMatrix(true, true);
+    const world = link.matrixWorld.clone();
+    if(link.parent) link.parent.remove(link);
+    joint.add(link);
+    const local = new THREE.Matrix4().copy(joint.matrixWorld).invert().multiply(world);
+    link.matrix.copy(local);
+    link.matrix.decompose(link.position, link.quaternion, link.scale);
+    attachedPairs.push(`${joint.name||('J'+(i+1))} ⇐ ${link.name}`);
+  }
+  if(attachedPairs.length) addLog($now(),'Info','Reattached links: ' + attachedPairs.join(' | '));
+}
+
+const JOINT_KEYS = [
+  ['shoulder_pan_joint','base_joint','base_jointfixedbone','shoulder_pan','base','base_link','link1','j1'],
+  ['shoulder_lift_joint','shoulder_lift_jointrevolutebone','shoulder_lift','shoulder_link','link2','j2'],
+  ['elbow_joint','elbow_jointrevolutebone','elbow','upper_arm_link','link3','j3'],
+  ['wrist_1_joint','wrist_1_jointrevolutebone','wrist_1','forearm_link','link4','j4'],
+  ['wrist_2_joint','wrist_2_jointrevolutebone','wrist_2','wrist_1_link','link5','j5'],
+  ['wrist_3_joint','wrist_3_jointrevolutebone','wrist_3','wrist_2_link','link6','j6']
+];
+const TCP_KEYS = ['wrist_3_link','flange','tool0','ee_link','tcp'];
+
+function nodeAxisAngle(n, axisChar){ if(!n) return 0; if(axisChar==='x') return n.rotation.x; if(axisChar==='y') return n.rotation.y; return n.rotation.z; }
+function probeTipNode(){
+  if(tcpNode) return tcpNode;
+  let leaf=null, maxDepth=-1;
+  if(currentModel){
+    currentModel.traverse(n=>{
+      if(n.isMesh){
+        let d=0, p=n; while(p){ d++; p=p.parent; }
+        if(d>maxDepth){ maxDepth=d; leaf=n; }
+      }
+    });
+  }
+  return leaf || jointNodes[5] || jointNodes.find(Boolean) || currentModel || robotRoot;
+}
+function probeTipPos(){
+  const n = probeTipNode();
+  const p = new THREE.Vector3();
+  if(n && n.getWorldPosition) n.getWorldPosition(p); else p.set(0,0,0);
+  return p;
+}
+function selectAxisForJoint(i){
+  const j = jointNodes[i]; if(!j) return 'z';
+  const axes=['x','y','z']; const delta=0.05;
+  const orig = j.rotation.clone();
+  const p0 = probeTipPos();
+  let best='z', bestScore=-1;
+  for(const ax of axes){
+    j.rotation.copy(orig);
+    if(ax==='x') j.rotation.x += delta; else if(ax==='y') j.rotation.y += delta; else j.rotation.z += delta;
+    if(currentModel) currentModel.updateWorldMatrix(true,true);
+    const p = probeTipPos();
+    const s = p.distanceTo(p0);
+    if(s>bestScore){ bestScore=s; best=ax; }
+  }
+  j.rotation.copy(orig);
+  if(currentModel) currentModel.updateWorldMatrix(true,true);
+  return best;
+}
+function autoDetectAxesAndOffsets(){
+  if(!jointNodes.length) return;
+  axisSel = jointNodes.map((_,i)=> selectAxisForJoint(i));
+  const qFirst = frames.length ? mapQ(frames[0].q.slice()) : [0,0,0,0,0,0];
+  JOINT_OFFSETS = jointNodes.map((jn,i)=>{
+    const ax = axisSel[i] || 'z';
+    const baseAng = nodeAxisAngle(jn, ax);
+    const sign = JOINT_SIGNS[i] || 1;
+    return baseAng - sign*(qFirst[i]||0);
+  });
+  syncCalibUI();
+  addLog($now(),'Info',`Axes(auto): ${axisSel.join(', ')}`);
+}
+function loadGLB(file){
+  const url = URL.createObjectURL(file);
+  const loader = new THREE.GLTFLoader();
+  loader.load(url, gltf=>{
+    while(robotRoot.children.length) robotRoot.remove(robotRoot.children[0]);
+    const model = gltf.scene;
+    currentModel = model;
+    model.traverse(n=>{
+      if(n.isMesh){ n.material.side = THREE.DoubleSide; n.material.metalness = Math.min(0.45,(n.material.metalness||0.1)+0.15); n.material.roughness=0.5; n.castShadow=n.receiveShadow=false; }
+    });
+    robotRoot.add(model);
+
+    jointNodes = []; for(let i=0;i<6;i++) jointNodes.push(findJointNode(model, JOINT_KEYS[i]));
+    tcpNode = findExactNode(model, TCP_KEYS);
+
+    addLog($now(),'Info','Keeping GLB hierarchy (authoritative).');
+
+    axisSel = ['z','y','y','y','y','y'];
+    JOINT_OFFSETS = [0, -Math.PI/2, 0, -Math.PI/2, 0, 0];
+    JOINT_SIGNS = [1,1,1,1,1,1];
+    MAP = [0,1,2,3,4,5];
+    syncCalibUI();
+    addLog($now(),'Info','Using fixed UR5e axes/offsets (auto-detect disabled).');
+
+    autoChooseJ1Axis();
+
+    const found = jointNodes.map((n,i)=> `${i+1}:${n? (n.name||'node') : '—'}`).join(' | ');
+    addLog($now(),'Info',`GLB loaded: ${file.name}`);
+    addLog($now(),'Info',`Joint nodes → ${found}`);
+
+    updateModelTransform();
+    robotRoot.position.y = Number($('modelY').value || -0.18);
+    if(frames.length){ const idx=Math.floor((frames.length-1)*(seek.value/1000)); setRigAngles(frames[idx].q.slice()); }
+    buildTfTree(model);
+
+    clearRigPointClouds();
+    const n = Math.max(1000, parseInt($('rigPcCount').value, 10) || 30000);
+    generateRigPointCloud(n);
+    setRigPcVisibility($('rigPcVisible').checked);
+    addLog($now(),'Info',`Mesh→PointCloud autogenerated for PC viewport (${n} pts)`);
+  }, undefined, err=> addLog($now(),'Error','GLB load failed: '+err.message));
+}
+$('gltfFile').addEventListener('change', e=>{ const f=e.target.files[0]; if(f) loadGLB(f); });
+
+function updateModelTransform(){
+  const s = Number($('modelScale').value||1);
+  robotRoot.scale.setScalar(s);
+  robotRoot.position.set(Number($('modelX').value||0), Number($('modelY').value||0), Number($('modelZ').value||0));
+  robotRoot.rotation.set(0,0,THREE.MathUtils.degToRad(Number($('modelYaw').value||0)));
+}
+['modelScale','modelX','modelY','modelZ','modelYaw'].forEach(id => $(id).addEventListener('input', updateModelTransform));
+
+let frames=[], tEnd=0, playing=false, playStartWall=0, playStartT=0, t0=0;
+
+let lastI = -1;
+let lastRawQ = [0,0,0,0,0,0];
+let seamFromQ = null;
+let seamSegI = -1;
+let LINEAR_SEAM_FRAC = 0.15; // user-adjustable (0–0.4)
+
+function findIndexByTime(t){
+  if(!frames.length) return 0;
+  if(t <= frames[0].t) return 0;
+  const last = frames.length - 1;
+  if(t >= frames[last].t) return Math.max(0, last - 1);
+  let lo = 0, hi = last - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const tm = frames[mid].t, tn = frames[mid+1].t;
+    if (t >= tm && t < tn) return mid;
+    if (t < tm) hi = mid - 1; else lo = mid + 1;
+  }
+  return Math.max(0, Math.min(last - 1, lo));
+}
+
+function unwrapAngles(frArr){
+  if(!frArr || !frArr.length) return;
+  const n = 6;
+  for(let k=0;k<n;k++){
+    let prev = frArr[0].q[k] || 0;
+    for(let i=1;i<frArr.length;i++){
+      let v = frArr[i].q[k] || 0;
+      while(v - prev > Math.PI)  v -= 2*Math.PI;
+      while(v - prev < -Math.PI) v += 2*Math.PI;
+      frArr[i].q[k] = v; prev = v;
+    }
+  }
+}
+function parseCSV(text){
+  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim().length>0);
+  if(lines.length<2) return [];
+  const header = lines[0].split(',').map(s=>s.trim().toLowerCase());
+  const alias = (cands)=> cands.map(c=> header.indexOf(c)).find(i=>i>=0);
+
+  const idxT = alias(['pc_ts','time','timestamp','t','sec','secs','ms','nsec','nanosec','usec','microsec']);
+  const qIdx = [ alias(['q_0','j1','q1']), alias(['q_1','j2','q2']), alias(['q_2','j3','q3']),
+                 alias(['q_3','j4','q4']), alias(['q_4','j5','q5']), alias(['q_5','j6','q6']) ];
+  const out=[];
+  for(let i=1;i<lines.length;i++){
+    const cols = lines[i].split(',');
+    if(cols.length<header.length) continue;
+    let t = idxT>=0 ? Number(cols[idxT]) : (i-1)*0.02;
+    const q = qIdx.map(idx => idx>=0 ? Number(cols[idx]) : 0);
+    out.push({t,q});
+  }
+  if(out.length>=3){
+    const dts = []; for(let i=1;i<out.length;i++){ const d=out[i].t-out[i-1].t; if(isFinite(d)&&d>0) dts.push(d); }
+    if(dts.length){
+      dts.sort((a,b)=>a-b);
+      let med=dts[Math.floor(dts.length/2)];
+      let mx = dts[dts.length-1];
+      let scale=1; while(med>1.5){ med/=1000; mx/=1000; scale*=1000; if(scale>1e12) break; }
+      if(scale>1){ out.forEach(fr => fr.t=fr.t/scale); addLog($now(),'Info',`Timestamp normalized by /${scale}`); }
+      csvDt=Math.max(1e-4, med);
+
+      const span = (out[out.length-1].t - out[0].t);
+      const ideal = span / Math.max(1,(out.length-1));
+      const hugePause = (mx/med) > 1000; // e.g., 1s holds mixed with microseconds
+      const uniq = new Set(out.map(fr=> fr.t)).size;
+      const uniqRatio = uniq / out.length;
+      if(hugePause || uniqRatio < 0.9){
+        for(let i=0;i<out.length;i++){ out[i].t = i*ideal; }
+        csvDt = ideal;
+        addLog($now(),'Info',`Retimed to uniform dt=${ideal.toFixed(6)}s (removed long holds)`);
+      }
+    }
+  }
+  const tstart = out.length? out[0].t : 0; out.forEach(f=> f.t-=tstart);
+  const qAbsMax = Math.max(...out.flatMap(r => r.q.map(v => Math.abs(v))));
+  if(qAbsMax>7.0){ out.forEach(r => r.q = r.q.map(v=> v*Math.PI/180)); addLog($now(),'Info','Detected degrees → converted to radians'); }
+  unwrapAngles(out); addLog($now(),'Info','Angle unwrap applied for continuity');
+
+  tEnd_ts = out.length ? out[out.length-1].t : 0;
+  tEnd_idx = out.length ? (out.length-1)*csvDt : 0;
+  return out;
+}
+
+const playBtn=$('playBtn'), pauseBtn=$('pauseBtn'), seek=$('seek'), speedSel=$('speed'), timeInfo=$('timeInfo');
+let qPrev=[0,0,0,0,0,0]; let SMOOTH_ALPHA=0.22; let looping=true; let pingPong=false; let playDir=1;
+function fmtTime(s){const m=Math.floor(s/60), r=s-m*60; return `${String(m).padStart(2,'0')}:${r.toFixed(1)}`;}
+function toDeg(rad){ return (rad*180/Math.PI).toFixed(1)+'°'; }
+function mapQ(q){ return [ q[MAP[0]]??0, q[MAP[1]]??0, q[MAP[2]]??0, q[MAP[3]]??0, q[MAP[4]]??0, q[MAP[5]]??0 ]; }
+function setRigAngles(q, smooth=false){
+  if(!jointNodes.length || jointNodes.every(n=>!n)){ addLog($now(),'Warn','GLB rig not mapped.'); return; }
+  const qM = mapQ(q);
+  const qq = qM.map((v,i)=> (v||0)*JOINT_SIGNS[i] + JOINT_OFFSETS[i]);
+  if(smooth){ for(let i=0;i<6;i++) qPrev[i] += SMOOTH_ALPHA*(qq[i]-qPrev[i]); } else { qPrev = qq.slice(); }
+  for(let i=0;i<6;i++){ const n = jointNodes[i]; if(!n) continue; n.rotation.order='XYZ'; if(axisSel[i]==='x') n.rotation.x=qPrev[i]; else if(axisSel[i]==='y') n.rotation.y=qPrev[i]; else n.rotation.z=qPrev[i]; }
+  ['j1','j2','j3','j4','j5','j6'].forEach((id,i)=> $(id).textContent = toDeg(qPrev[i]||0));
+}
+function play(){ if(!frames.length) return; playing=true; playDir=1; playStartWall=performance.now()/1000; playStartT=t0; addLog($now(),'Info','Playback started'); tick(); }
+function pause(){ playing=false; }
+playBtn.onclick=play; pauseBtn.onclick=pause;
+
+seek.addEventListener('input',()=>{
+  if(!frames.length) return;
+  const end = tEnd_ts;
+  t0 = (seek.value/1000) * end;
+  playStartT = t0; playStartWall = performance.now()/1000;
+  const i = findIndexByTime(t0);
+  setRigAngles(frames[i].q.slice(), $('smoothChk').checked);
+  updateCursorOnChart(t0);
+});
+
+function tick(){
+  if(!playing) return;
+  const wall=performance.now()/1000, spd=Number(speedSel.value);
+  const end = tEnd_ts;
+  let t = playStartT + (wall - playStartWall)*spd*playDir;
+  if(t > end){
+    if(looping){ if(pingPong){ playDir=-1; playStartT=end; playStartWall=wall; t=end; } else { playStartT=0; playStartWall=wall; t=0; } }
+    else { t=end; playing=false; }
+  }else if(t < 0){
+    if(looping){ if(pingPong){ playDir=1; playStartT=0; playStartWall=wall; t=0; } else { playStartT=0; playStartWall=wall; t=0; } }
+    else { t=0; playing=false; }
+  }
+
+  t0 = Math.max(0, Math.min(end, t));
+  seek.value = Math.floor(1000*(t0/end));
+  timeInfo.textContent = `${fmtTime(t0)} / ${fmtTime(end)}`;
+
+  const i = findIndexByTime(t0);
+
+  if(i !== lastI){
+    seamFromQ = lastRawQ.slice();
+    seamSegI = i;
+    lastI = i;
+  }
+
+  const f0 = frames[i], f1 = frames[i+1];
+  const f_1 = frames[Math.max(i-1,0)], f2 = frames[Math.min(i+2, frames.length-1)];
+  const denom = Math.max(1e-9, (f1.t - f0.t));
+  let u = Math.max(0, Math.min(1, (t0 - f0.t)/denom ));
+
+  const interp = $('interpSel').value;
+  function smootherstep(x){ return x*x*x*(x*(6*x-15)+10); }
+  let uEff = u;
+  if(interp==='linear' && $('smoothChk').checked){ uEff = smootherstep(u); }
+
+  let q;
+  if(interp==='linear'){
+    let q0Start = f0.q.slice();
+    if(seamFromQ && i===seamSegI && u < LINEAR_SEAM_FRAC){
+      const w = Math.min(1, Math.max(0, u / LINEAR_SEAM_FRAC));
+      const ws = (w*w*w*(w*(6*w-15)+10));
+      q0Start = q0Start.map((v,k)=> seamFromQ[k]*(1-ws) + v*ws);
+    }
+    q = new Array(6).fill(0).map((_,k)=> (q0Start[k]??0) + ((f1.q[k]??0) - (q0Start[k]??0))*uEff );
+  }else{
+    function cm(a,b,c,d,u_){ const u2=u_*u_, u3=u2*u_; return 0.5*((2*b)+(-a+c)*u_+(2*a-5*b+4*c-d)*u2+(-a+3*b-3*c+d)*u3); }
+    q = new Array(6).fill(0).map((_,k)=> cm(f_1.q[k]??f0.q[k], f0.q[k], f1.q[k], f2.q[k]??f1.q[k], u));
+  }
+  setRigAngles(q, $('smoothChk').checked);
+
+  if(trailEnabled && tcpNode){ const p=new THREE.Vector3(); tcpNode.getWorldPosition(p); pushTrailPoint(p); }
+
+  updateCursorOnChart(t0);
+  lastRawQ = q.slice();
+  requestAnimationFrame(tick);
+}
+
+$('loopChk')?.addEventListener('change', e=> looping = e.target.checked);
+$('pingChk')?.addEventListener('change', e=> pingPong = e.target.checked);
+$('seamBlend')?.addEventListener('input', e=> { const v=Number(e.target.value)||0; LINEAR_SEAM_FRAC = Math.max(0, Math.min(0.4, v/100)); });
+$('smoothAlpha')?.addEventListener('input', e=> { const v=Number(e.target.value); if(isFinite(v)) SMOOTH_ALPHA = v; });
+
+function syncCalibUI(){
+  $('calibSigns').value = JOINT_SIGNS.join(',');
+  $('calibOffsets').value = JOINT_OFFSETS.map(v=> (v*180/Math.PI).toFixed(1)).join(',');
+  $('axisSpec').value = axisSel.join(',');
+  $('mapSpec').value = MAP.map(v=>v+1).join(',');
+}
+$('calibFirst').onclick=()=>{
+  if(!frames.length){ alert('Load CSV first'); return; }
+  const q0 = mapQ(frames[0].q.slice());
+  JOINT_OFFSETS = jointNodes.map((jn,i)=>{ const ax=axisSel[i]||'z'; const base=nodeAxisAngle(jn,ax); const sign=JOINT_SIGNS[i]||1; return base - sign*(q0[i]||0); });
+  syncCalibUI(); setRigAngles(q0);
+  addLog($now(),'Info','Offsets calibrated from first frame.');
+};
+function applyCalibFromUI(){
+  try{
+    JOINT_SIGNS = $('calibSigns').value.split(',').map(x=> parseInt(x.trim(),10)||1).map(v=> v>=0?1:-1);
+    JOINT_OFFSETS = $('calibOffsets').value.split(',').map(x=> parseFloat(x.trim())*Math.PI/180 || 0);
+    axisSel = $('axisSpec').value.split(',').map(s=> (s||'z').trim().toLowerCase()[0]).map(c => (c==='x'||c==='y'||c==='z')? c : 'z');
+    const m = $('mapSpec').value.split(',').map(s=>parseInt(s.trim(),10)); MAP = m.map(v=>Math.max(1,Math.min(6, isFinite(v)?v:1))-1);
+    addLog($now(),'Info','Calibration applied');
+  }catch(e){ alert('Invalid inputs'); }
+}
+$('applyCalib')?.addEventListener('click', applyCalibFromUI);
+
+$('csvFile').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload=()=>{
+    frames = parseCSV(reader.result);
+    if(!frames.length){ alert('CSV empty or invalid'); return; }
+    tEnd = tEnd_ts; t0=0; $('seek').value=0; $('timeInfo').textContent=`00:00.0 / ${fmtTime(tEnd)}`;
+    const q0m = mapQ(frames[0].q.slice());
+    calibrateOffsetsToQ(q0m); setRigAngles(q0m);
+
+    autoChooseJ1Axis();
+    setRigAngles(q0m);
+
+    addLog($now(),'Info',`CSV loaded: ${frames.length} frames, ${fmtTime(tEnd)}`);
+    buildCharts(frames);
+    play();
+  }; reader.readAsText(f);
+});
+function calibrateOffsetsToQ(qRef){
+  if(!Array.isArray(qRef) || qRef.length < 6 || !jointNodes.length) return;
+  JOINT_OFFSETS = jointNodes.map((jn,i)=>{ const ax=axisSel[i]||'z'; const base=nodeAxisAngle(jn,ax); const sign=JOINT_SIGNS[i]||1; return base - sign*(qRef[i]||0); });
+  syncCalibUI();
+}
+
+function autoChooseJ1Axis(){
+  if(!jointNodes[0]) return;
+  const j = jointNodes[0];
+  const orig = j.rotation.clone();
+  const delta = 0.05;
+  const basePos = new THREE.Vector3();
+  (tcpNode||j).getWorldPosition(basePos);
+
+  function score(ax){
+    j.rotation.copy(orig);
+    if(ax==='x') j.rotation.x += delta; else if(ax==='y') j.rotation.y += delta; else j.rotation.z += delta;
+    if(currentModel) currentModel.updateWorldMatrix(true,true);
+    const p=new THREE.Vector3(); (tcpNode||j).getWorldPosition(p);
+    return p.distanceTo(basePos);
+  }
+
+  const candidates = ['z','y','x'];
+  let best = axisSel[0]||'z', bestScore = -1;
+  for(const ax of candidates){ const s = score(ax); if(s>bestScore){ bestScore=s; best=ax; } }
+  j.rotation.copy(orig);
+  if(currentModel) currentModel.updateWorldMatrix(true,true);
+  axisSel[0] = best;
+  syncCalibUI();
+  addLog($now(),'Info',`J1 axis auto-picked → ${best}`);
+}
+
+function buildTfTree(model){
+  const box = $('tfTree'); box.innerHTML='';
+  function uiNode(n){
+    const hasKids = (n.children && n.children.length>0);
+    const root = document.createElement('div');
+    const label = document.createElement('label');
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = n.visible; cb.onchange=()=> n.visible = cb.checked;
+    label.appendChild(cb);
+    const span = document.createElement('span'); span.textContent = n.name || '(node)';
+    label.appendChild(span);
+    if(hasKids){
+      const det = document.createElement('details'); det.open=false;
+      const sum = document.createElement('summary'); sum.appendChild(label); det.appendChild(sum);
+      n.children.forEach(c=>{ const ch=uiNode(c); ch.style.paddingLeft='12px'; det.appendChild(ch); });
+      return det;
+    }else{ root.appendChild(label); return root; }
+  }
+  box.appendChild(uiNode(model));
+}
+$('lockBaseChk').addEventListener('change', e=>{
+  const lock = e.target.checked;
+  if(!jointNodes[0]) return;
+  const ax = axisSel[0]||'z';
+  if(lock){
+    const baseAngle = nodeAxisAngle(jointNodes[0], ax);
+    const i = findIndexByTime(t0);
+    const qNow = (frames.length ? mapQ(frames[Math.max(0,i)].q)[0] : 0) * (JOINT_SIGNS[0]||1);
+    JOINT_OFFSETS[0] = baseAngle - qNow;
+  }else{
+  }
+  syncCalibUI();
+});
+$('showAxesChk').addEventListener('change', e=>{
+  const on = e.target.checked;
+  robotRoot.traverse(n=>{ if(n.isAxesHelper){ n.visible=on; } });
+  if(on){
+    jointNodes.forEach(j=>{ if(!j) return; if(!j.__axes){ const a=new THREE.AxesHelper(0.08); j.add(a); j.__axes=a; } j.__axes.visible=true;});
+  }
+});
+
+const pcGroup = new THREE.Group(); stageGroup.add(pcGroup);
+pcGroup.layers.set(2); // external clouds → layer 2 (PC viewport camera renders 1 & 2)
+$('pcToggle').addEventListener('change', e=> pcGroup.visible = e.target.checked);
+$('pcClear').addEventListener('click', ()=>{ while(pcGroup.children.length) pcGroup.remove(pcGroup.children[0]); addLog($now(),'Info','Point cloud cleared'); });
+$('pcSize').addEventListener('input', e=>{
+  const s = Number(e.target.value);
+  pcGroup.traverse(o=>{ if(o.isPoints) o.material.size = s/100; });
+});
+function setPcTransformFromUI(){
+  const s = Number($('pcScale').value||1);
+  pcGroup.scale.setScalar(s);
+  pcGroup.position.set(Number($('pcX').value||0), Number($('pcY').value||0), Number($('pcZ').value||0));
+}
+['pcScale','pcX','pcY','pcZ'].forEach(id => $(id).addEventListener('input', setPcTransformFromUI));
+function fitPcGroup(){
+  let bb=null; const box=new THREE.Box3();
+  pcGroup.traverse(o=>{ if(o.isPoints){ o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox); bb=box; } });
+  if(bb){
+    const size = new THREE.Vector3(); bb.getSize(size);
+    const maxDim = Math.max(size.x,size.y,size.z);
+    if(maxDim>0){
+      const scale = 0.4 / maxDim;
+      $('pcScale').value = scale.toFixed(3);
+      setPcTransformFromUI();
+    }
+  }
+}
+$('pcFit').addEventListener('click', fitPcGroup);
+
+$('pcFile').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const name=f.name.toLowerCase();
+  const decim = Math.max(1, parseInt($('pcDecim').value,10)||1);
+  if(name.endsWith('.pcd')){
+    const loader = new THREE.PCDLoader();
+    loader.load(URL.createObjectURL(f), pts=>{
+      const g = pts.geometry;
+      let pos = g.attributes.position.array;
+      const sel = []; for(let i=0;i<pos.length/3;i+=decim){ sel.push(pos[3*i],pos[3*i+1],pos[3*i+2]); }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(sel),3));
+      const mat = new THREE.PointsMaterial({size:Number($('pcSize').value)/100, color:0x80c7ff, sizeAttenuation:true});
+      const cloud = new THREE.Points(geo, mat);
+      cloud.layers.set(2);
+      pcGroup.add(cloud);
+      setPcTransformFromUI();
+      addLog($now(),'Info',`PCD loaded (${(pos.length/3)|0} → ${sel.length/3} pts)`);
+    });
+  }else if(name.endsWith('.ply')){
+    const loader = new THREE.PLYLoader();
+    loader.load(URL.createObjectURL(f), geo=>{
+      geo.computeVertexNormals();
+      const pos = geo.attributes.position.array;
+      const sel = []; for(let i=0;i<pos.length/3;i+=decim){ sel.push(pos[3*i],pos[3*i+1],pos[3*i+2]); }
+      const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(sel),3));
+      const mat = new THREE.PointsMaterial({size:Number($('pcSize').value)/100, color:0xffd580, sizeAttenuation:true});
+      const cloud = new THREE.Points(g2, mat);
+      cloud.layers.set(2);
+      pcGroup.add(cloud);
+      setPcTransformFromUI();
+      addLog($now(),'Info',`PLY loaded (${(pos.length/3)|0} → ${sel.length/3} pts)`);
+    });
+  }else if(name.endsWith('.xyz') || name.endsWith('.txt')){
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const lines = reader.result.trim().split(/\r?\n/);
+      const arr=[];
+      for(const line of lines){
+        const a=line.trim().split(/[\s,]+/).map(Number);
+        if(a.length>=3 && isFinite(a[0])&&isFinite(a[1])&&isFinite(a[2])){ arr.push(a[0],a[1],a[2]); }
+      }
+      const geo=new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(arr),3));
+      const mat=new THREE.PointsMaterial({size:Number($('pcSize').value)/100, color:0x9ad1ff});
+      const cloud=new THREE.Points(geo,mat);
+      cloud.layers.set(2);
+      pcGroup.add(cloud);
+      setPcTransformFromUI();
+      addLog($now(),'Info',`XYZ loaded (${arr.length/3} pts)`);
+    };
+    reader.readAsText(f);
+  }else{
+    alert('Unsupported cloud format. Use .pcd / .ply / .xyz / .txt');
+  }
+});
+
+let trailEnabled = false, trailLine=null, trailMax=5000;
+$('trailBtn').addEventListener('click', ()=>{
+  trailEnabled = !trailEnabled;
+  if(!trailEnabled){ if(trailLine){ stageGroup.remove(trailLine); trailLine=null; } }
+  addLog($now(),'Info', trailEnabled?'Trail ON':'Trail OFF');
+});
+function pushTrailPoint(p){
+  if(!trailLine){
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(trailMax*3),3));
+    const mat=new THREE.LineBasicMaterial({color:0x60ffa2, transparent:true, opacity:0.9});
+    trailLine=new THREE.Line(geo,mat); trailLine.userData.count=0; stageGroup.add(trailLine);
+  }
+  const g=trailLine.geometry; const arr=g.attributes.position.array; let c=trailLine.userData.count;
+  const idx=(c%trailMax)*3; arr[idx]=p.x; arr[idx+1]=p.y; arr[idx+2]=p.z; trailLine.userData.count=c+1;
+  g.setDrawRange(0, Math.min(c+1, trailMax)); g.attributes.position.needsUpdate=true;
+}
+$('preTrailBtn').addEventListener('click', ()=>{
+  if(!frames.length || !tcpNode){ alert('Load CSV & GLB first'); return; }
+  const wasVis = robotRoot.visible; robotRoot.visible=false;
+  const save = qPrev.slice();
+  const pts=[]; const step=Math.max(1, Math.floor(frames.length/1500));
+  for(let i=0;i<frames.length;i+=step){ setRigAngles(frames[i].q,false); const p=new THREE.Vector3(); tcpNode.getWorldPosition(p); pts.push(p.clone()); }
+  setRigAngles(save,false); robotRoot.visible=wasVis;
+  if(trailLine){ stageGroup.remove(trailLine); trailLine=null; }
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=new THREE.LineBasicMaterial({color:0x60ffa2}); trailLine=new THREE.Line(geo,mat); trailEnabled=true; stageGroup.add(trailLine);
+  addLog($now(),'Info',`Trail precomputed (${pts.length} pts)`);
+});
+
+let chart=null;
+function buildCharts(fr){
+  const t = fr.map(r => Number(r.t.toFixed(3)));
+  const ds = Array.from({length:6}, (_,k)=>({
+    label:'J'+(k+1), data: fr.map(r=> r.q[k]*180/Math.PI),
+    borderWidth:1.5, pointRadius:0, tension:0.25
+  }));
+  if(chart){ chart.destroy(); }
+  chart = new Chart($('jointChart').getContext('2d'), {
+    type:'line',
+    data:{ labels:t, datasets:ds },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#cfe3f0'}}, tooltip:{enabled:false}},
+      scales:{
+        x:{ ticks:{ color:'#9fb2c4', callback: function(value){ const raw = this.getLabelForValue ? this.getLabelForValue(value) : value; const num = Number(raw); return isFinite(num) ? num.toFixed(3) : raw; } }, grid:{color:'#1a2a34'} },
+        y:{ ticks:{color:'#9fb2c4'}, grid:{color:'#1a2a34'}, title:{display:true, text:'deg', color:'#9fb2c4'} }
+      }
+    }
+  });
+}
+function updateCursorOnChart(t){
+  if(!chart) return;
+  const x = t;
+  chart.update('none');
+  const ctx = chart.ctx, area = chart.chartArea;
+  const xScale = chart.scales.x;
+  const px = xScale.getPixelForValue(x);
+  ctx.save(); ctx.strokeStyle='#77ffd2'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(px, area.top); ctx.lineTo(px, area.bottom); ctx.stroke(); ctx.restore();
+}
+
+const bmBox=$('bmBox'); let bookmarks=[];
+function renderBm(){
+  bmBox.innerHTML='';
+  bookmarks.forEach((t,i)=>{
+    const b=document.createElement('span');
+    b.className='tag'; b.textContent=fmtTime(t);
+    b.onclick=()=>{ t0=t; playStartT=t; playStartWall=performance.now()/1000; seek.value=Math.floor(1000*(t/tEnd_ts)); };
+    bmBox.appendChild(b);
+  });
+}
+$('addBm').onclick=()=>{ bookmarks.push(t0); renderBm(); };
+$('clearBm').onclick=()=>{ bookmarks=[]; renderBm(); };
+
+function updateTCPLabelFromNode(){ if(!tcpNode) return; const p = new THREE.Vector3(); tcpNode.getWorldPosition(p); $('tcpLabel').textContent = `TCP: ${ (p.z*1000).toFixed(1) } mm`; }
+
+function clearRigPointClouds(){
+  for(const p of rigPointClouds){
+    if(p.parent) p.parent.remove(p);
+    if(p.geometry) p.geometry.dispose();
+    if(p.material) p.material.dispose();
+  }
+  rigPointClouds.length = 0;
+}
+function triangleArea(a,b,c){
+  const ab = new THREE.Vector3().subVectors(b,a);
+  const ac = new THREE.Vector3().subVectors(c,a);
+  return new THREE.Vector3().crossVectors(ab,ac).length() * 0.5;
+}
+function surfaceAreaOfGeometry(geom){
+  const g = geom.index ? geom.toNonIndexed() : geom;
+  const pos = g.attributes.position;
+  const ntri = pos.count/3;
+  const va=new THREE.Vector3(), vb=new THREE.Vector3(), vc=new THREE.Vector3();
+  let sum=0;
+  for(let i=0;i<ntri;i++){
+    va.fromBufferAttribute(pos, 3*i+0);
+    vb.fromBufferAttribute(pos, 3*i+1);
+    vc.fromBufferAttribute(pos, 3*i+2);
+    sum += triangleArea(va,vb,vc);
+  }
+  return Math.max(0,sum);
+}
+function samplePointsOnGeometry(geom, count){
+  const g = geom.index ? geom.toNonIndexed() : geom;
+  const pos = g.attributes.position;
+  if(!pos || !pos.count) return new Float32Array(0);
+  const ntri = Math.floor(pos.count / 3);
+  if(!isFinite(ntri) || ntri < 1 || !isFinite(count) || count <= 0) return new Float32Array(0);
+
+  const areas = new Float32Array(ntri);
+  let totalArea = 0;
+  const va=new THREE.Vector3(), vb=new THREE.Vector3(), vc=new THREE.Vector3();
+  for(let i=0;i<ntri;i++){
+    va.fromBufferAttribute(pos, 3*i+0);
+    vb.fromBufferAttribute(pos, 3*i+1);
+    vc.fromBufferAttribute(pos, 3*i+2);
+    const A = triangleArea(va,vb,vc);
+    totalArea += (areas[i] = Math.max(A, 1e-12));
+  }
+  if(totalArea<=0) return new Float32Array(0);
+  for(let i=1;i<ntri;i++) areas[i] += areas[i-1];
+
+  function pickTri(u){
+    const target = u * areas[ntri-1];
+    let lo=0, hi=ntri-1;
+    while(lo<hi){
+      const mid=(lo+hi)>>1;
+      if(areas[mid] < target) lo = mid+1; else hi = mid;
+    }
+    return lo;
+  }
+  function sampleInTri(i){
+    let r1 = Math.random(), r2 = Math.random();
+    const sr1 = Math.sqrt(r1);
+    const a = 1 - sr1, b = sr1 * (1 - r2), c = sr1 * r2;
+    va.fromBufferAttribute(pos, 3*i+0);
+    vb.fromBufferAttribute(pos, 3*i+1);
+    vc.fromBufferAttribute(pos, 3*i+2);
+    return new THREE.Vector3(
+      a*va.x + b*vb.x + c*vc.x,
+      a*va.y + b*vb.y + c*vc.y,
+      a*va.z + b*vb.z + c*vc.z
+    );
+  }
+
+  const out = new Float32Array(count*3);
+  for(let k=0;k<count;k++){
+    const idx = pickTri(Math.random());
+    const p = sampleInTri(idx);
+    out[3*k+0] = p.x; out[3*k+1] = p.y; out[3*k+2] = p.z;
+  }
+  return out;
+}
+function getAllMeshes(root){
+  const arr=[]; root && root.traverse(n=>{ if(n.isMesh && n.geometry && n.visible!==false) arr.push(n); });
+  return arr;
+}
+function generateRigPointCloud(totalCount){
+  if(!currentModel){ alert('Load GLB first'); return; }
+  clearRigPointClouds();
+
+  const meshes = getAllMeshes(currentModel).filter(m=> m.geometry && m.geometry.attributes?.position);
+  if(!meshes.length){ alert('No meshes found in GLB'); return; }
+
+  const areas = meshes.map(m=> surfaceAreaOfGeometry(m.geometry));
+  const totalArea = areas.reduce((a,b)=>a+b,0);
+  if(totalArea<=0){ alert('Invalid surface area'); return; }
+
+  let allocated = 0;
+  for(let i=0;i<meshes.length;i++){
+    const m = meshes[i];
+    const n = (i===meshes.length-1) ? (totalCount-allocated) : Math.max(50, Math.floor(totalCount * areas[i] / totalArea));
+    allocated += n;
+
+    const geo = new THREE.BufferGeometry();
+    const positions = samplePointsOnGeometry(m.geometry, n);
+    if(positions.length === 0){ continue; }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
+    const mat = new THREE.PointsMaterial({ size: 0.003, color: 0x9ad1ff, sizeAttenuation: true });
+    const cloud = new THREE.Points(geo, mat);
+    cloud.layers.set(1);
+    cloud.frustumCulled = false;
+
+    m.add(cloud);
+    rigPointClouds.push(cloud);
+  }
+  addLog($now(),'Info',`Mesh→PointCloud generated: ${totalCount} points over ${meshes.length} meshes.`);
+  setRigPcVisibility($('rigPcVisible').checked);
+}
+function setRigPcVisibility(v){ for(const p of rigPointClouds){ p.visible = !!v; } }
+$('rigPcGenBtn').addEventListener('click', ()=>{
+  const n = Math.max(1000, parseInt($('rigPcCount').value,10) || 30000);
+  generateRigPointCloud(n);
+});
+$('rigPcVisible').addEventListener('change', e=> setRigPcVisibility(e.target.checked));
+
+function gatherRigPcWorldPoints(){
+  const arr = [];
+  const p = new THREE.Vector3();
+  for(const pts of rigPointClouds){
+    if(!pts.geometry?.attributes?.position) continue;
+    const pos = pts.geometry.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      p.fromBufferAttribute(pos,i);
+      pts.localToWorld(p);
+      arr.push([p.x, p.y, p.z]);
+    }
+  }
+  return arr;
+}
+function downloadText(filename, text){
+  const blob = new Blob([text], {type: 'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+$('rigPcExportXyz').addEventListener('click', ()=>{
+  const pts = gatherRigPcWorldPoints();
+  if(!pts.length){ alert('Generate Mesh→PC first'); return; }
+  const lines = pts.map(p=> `${p[0]} ${p[1]} ${p[2]}`).join('\n');
+  downloadText('robot_points.xyz', lines);
+  addLog($now(),'Info',`Exported XYZ: ${pts.length} points`);
+});
+$('rigPcExportPly').addEventListener('click', ()=>{
+  const pts = gatherRigPcWorldPoints();
+  if(!pts.length){ alert('Generate Mesh→PC first'); return; }
+  const header = [
+    'ply',
+    'format ascii 1.0',
+    `element vertex ${pts.length}`,
+    'property float x',
+    'property float y',
+    'property float z',
+    'end_header'
+  ].join('\n');
+  const body = pts.map(p=> `${p[0]} ${p[1]} ${p[2]}`).join('\n');
+  downloadText('robot_points.ply', header+'\n'+body+'\n');
+  addLog($now(),'Info',`Exported PLY: ${pts.length} points`);
+});
+</script>
+</body>
+</html>
