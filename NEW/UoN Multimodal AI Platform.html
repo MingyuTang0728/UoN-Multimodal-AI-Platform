@@ -9,7 +9,6 @@
     html, body { height: 100%; background: #070d12; }
     .glass { backdrop-filter: blur(8px); }
     .overlay { background: rgba(2,10,14,.72); }
-    /* --- Sci-Fi panels; 去掉动态网格 --- */
     .holo-grid { position: relative; }
     .holo-grid::before{ content:""; position:absolute; inset:0; pointer-events:none; background:none; animation:none; opacity:0; }
     .holo-panel { position:relative; overflow:hidden; }
@@ -20,7 +19,6 @@
     .no-overflow { overflow:hidden; }
     .truncate-one { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    /* --- Pro Flow Step Styles (fix truncation/spacing) --- */
     .pro-flow-step{
       display:inline-flex; align-items:center; height:40px; padding:0 14px;
       border-radius:10px; border:1px solid rgba(6,148,138,.45);
@@ -57,8 +55,6 @@
   window.React = React;
   console.debug('[AIlab] React', React?.version, 'single instance OK');
   const cn = (...a)=>a.filter(Boolean).join(' ');
-
-  /* ----------------- Helpers ----------------- */
   async function openLocal(candidates){
     const base = new URL('./', window.location.href).href;
     for (const rel of candidates){
@@ -72,7 +68,6 @@
     alert('File not found. Put one of these next to this file:\n' + candidates.join('\n'));
   }
 
-  /* ---------------- Error Boundary ---------------- */
   class Boundary extends React.Component {
     constructor(p){ super(p); this.state={err:null}; }
     static getDerivedStateFromError(err){ return {err}; }
@@ -88,7 +83,6 @@
     }
   }
 
-  /* ---------------- Tiny UI (pure SVG) ---------------- */
   const makeIcon = (paths) => ({className=''}) => {
     const kids = React.Children.map(paths, (el, i) =>
       React.isValidElement(el) ? React.cloneElement(el, { key: el.key ?? i }) : el
@@ -108,7 +102,6 @@
   const VideoI = makeIcon(html`<rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 9l5-2v10l-5-2z"/>`);
   const RouteI = makeIcon(html`<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6a4 4 0 0 0 4-4V7"/>`);
 
-  // 支持透传属性，便于加 id
   const Card = ({className='', children, id, onClick}) => html`<div id=${id} onClick=${onClick} className=${cn('rounded-xl border border-teal-900/40 bg-[#0b131a] text-teal-100', className)}>${children}</div>`;
   const CardHeader = ({className='', children}) => html`<div className=${cn('p-4', className)}>${children}</div>`;
   const CardTitle = ({className='', children}) => html`<div className=${cn('font-semibold', className)}>${children}</div>`;
@@ -126,7 +119,6 @@
   };
   const TabsContent = ({value, children, className=''}) => { const c=React.useContext(TabsCtx); return c?.value===value ? html`<div className=${className}>${children}</div>` : null; };
 
-  /* ---------------- Data ---------------- */
   const initialUniversities = [
     { id:'nottingham', name:'University of Nottingham', city:'Nottingham', lat:52.94789458569521, lon:-1.184359334766157, color:'#00FFC6', url:'https://www.nottingham.ac.uk/' },
     { id:'ucl',        name:'UCL',                       city:'London',     lat:51.524777150336355, lon:-0.13464138691468552, color:'#7AE6FF', url:'https://www.ucl.ac.uk/' },
@@ -155,7 +147,7 @@
     { id:'3d',    label:'3D/GLB',      icon:RouteI },
   ];
 
-  /* ---------------- Industrial Multimodal – Presets ---------------- */
+
   const PIPELINE_PRESETS = [
     {
       id:'vla_robotics',
@@ -186,7 +178,6 @@
     }
   ];
 
-  /* ---------------- Industrial Widgets ---------------- */
   const Arrow = ({className=''}) => html`<svg viewBox="0 0 48 12" className=${className}><path d="M0 6h40" stroke="#19e6c2" strokeWidth="2"/><path d="M40 1l7 5-7 5" fill="#19e6c2"/></svg>`;
 
   const FlowStep = ({title}) => html`<div className="pro-flow-step"><span className="t">${title}</span></div>`;
@@ -230,7 +221,6 @@
     </div>`;
   };
 
-  // --- Community Task Broker (Edge↔Cloud, multimodal courier; local mock) ---
   const CommunityTaskBroker = () => {
     const templates = [
       {id:'inspection', name:'On-wing Inspection', steps:['Capture','Compress','Encrypt','Route','Acknowledge']},
@@ -290,8 +280,6 @@ Result: 2 tasks queued, 1 acknowledged.`);
       <pre className="whitespace-pre-wrap text-xs text-teal-200/90 bg-[#0a1016] border border-teal-900/60 rounded-md p-3 min-h-[72px]">${log||'Configure and click Dispatch to simulate cross-community courier.'}</pre>
     </div>`;
   };
-
-  // --- Agent Orchestrator (Holographic) — dashboard-only mock ---
   const AgentOrchestrator = () => {
     const skills = [
       { site:'UoN',        name:'Perception' },
@@ -361,7 +349,6 @@ Result: 2 tasks queued, 1 acknowledged.`);
     </div>`;
   };
 
-  /* ---------------- AI Lab (Dashboard-style) ---------------- */
   const AILabStats = () => {
     const [q]  = React.useState(3);
     const [ok] = React.useState(97.0);
@@ -487,7 +474,6 @@ Result: success (mock).`);
     </div>
   </div>`;
 
-  /* ---------------- Multimodal-AI Mock Tools (Lab) ---------------- */
   const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
   const ChatLite = () => {
     const [model, setModel]   = React.useState('gpt-4.1');
@@ -590,7 +576,6 @@ Result: success (mock).`);
     </div>`;
   };
 
-  /* --------- AILab Pro components (new) --------- */
   const OrchestratorPro = () => {
     const allUnis = ['Nottingham','UCL','King\'s College London','Manchester','Sheffield','Birmingham'];
     const [peers, setPeers] = React.useState(new Set(['Nottingham','UCL']));
@@ -643,8 +628,6 @@ Metrics: SR≈98%, ECE≈0.06 (mock).`);
     </div>`;
   };
 
-  // --- Selective Modality Fusion → Next-step Prediction (mock) ---
-  // Reusable EN-only file picker to avoid localized browser labels
   const FilePick = ({accept, onFile}) => {
     const inpRef = React.useRef(null);
     const [name,setName] = React.useState('');
@@ -784,7 +767,6 @@ Metrics: SR≈98%, ECE≈0.06 (mock).`);
     </div>
   </div>`;
 
-  /* ---------------- Projection ---------------- */
   function llToXY(lat, lon) {
     // UK bbox roughly lon [-8, 2], lat [49, 59]
     const nx = (lon + 8) / 10;
@@ -793,12 +775,10 @@ Metrics: SR≈98%, ECE≈0.06 (mock).`);
     return [(nx - 0.5) * scaleX, (ny - 0.5) * scaleY];
   }
 
-/* ---------------- Optional: university markers (disabled) ---------------- */
 const SHOW_MARKERS = false;
 
 const UniMarker = ({uni, onActive, active}) => null;
 
-/* ---------------- Camera ---------------- */
 const CameraRig = ({target, zoom=12, offset=[0,0]}) => {
   const { camera } = useThree();
   const defPos = new THREE.Vector3(0, 0, 12);
@@ -812,7 +792,6 @@ const CameraRig = ({target, zoom=12, offset=[0,0]}) => {
   return null;
 };
 
-// ---- University name label (world-anchored) ----
 const NameLabel = ({text, position=[0,0,0]}) => {
   const [mat, setMat] = React.useState(null);
   React.useEffect(()=>{
@@ -841,7 +820,6 @@ const NameLabel = ({text, position=[0,0,0]}) => {
     <meshStandardMaterial color="#0E1621" metalness=${0.2} roughness=${0.9} />
   </mesh>`;
 
-  // ---- Embedded lite polygons fallback ----
   const FALLBACK_LITE = {
     type:'FeatureCollection',
     features:[
@@ -857,7 +835,6 @@ const NameLabel = ({text, position=[0,0,0]}) => {
     ]
   };
 
-  /* ---------------- Regions (click to focus) ---------------- */
   const UKAdminRegions = ({highlightLL, activeRegionIndex=-1, onHighlightCenter, onHighlightBounds, onHighlightName, onRegionClick, universities=[]}) => {
     const [regions, setRegions] = useState([]);
     const [edges, setEdges] = useState([]);
@@ -883,14 +860,11 @@ const NameLabel = ({text, position=[0,0,0]}) => {
 
     const pickName = (props={}) => props.name || props.NAME || props.lad19nm || props.LAD19NM || props.LAD20NM || props.LAD13NM || props.LAD15NM || Object.values(props).find(v=> typeof v==='string') || 'Unknown';
 
-  // ----------- OFFLINE-FIRST loading -----------
-  // use global FORCE_OFFLINE_MAP flag (set near scene flags)
 
     React.useEffect(()=>{
       (async ()=>{
         let features = null;
         if (FORCE_OFFLINE_MAP) {
-          // 内置简化轮廓 + 尝试本地 lad.json/lad.topojson
           features = FALLBACK_LITE.features;
           const localUrls = ['./lad.json','./lad.topojson','./data/lad.json','./data/lad.topojson'];
           for (const u of localUrls) {
@@ -908,7 +882,6 @@ const NameLabel = ({text, position=[0,0,0]}) => {
             } catch(_) {}
           }
         } else {
-          // 需要联网的情况下再打开（默认关闭以避免403/404）
           const topoUrls = [
             'https://cdn.jsdelivr.net/gh/martinjc/UK-GeoJSON/json/administrative/gb/lad.topojson',
             'https://raw.githubusercontent.com/martinjc/UK-GeoJSON/master/json/administrative/gb/lad.topojson',
@@ -971,8 +944,6 @@ const NameLabel = ({text, position=[0,0,0]}) => {
               for(let h=1; h<ringsXY.length; h++){ if(inRingLocal(pt, ringsXY[h])) return false; }
               return true;
             });
-
-            // centroid
             let area=0, cx=0, cy=0; const outerXY = ringsXY[0]||[];
             for(let i=0,j=outerXY.length-1;i<outerXY.length;j=i++){
               const x0=outerXY[j][0], y0=outerXY[j][1];
@@ -1080,9 +1051,8 @@ const NameLabel = ({text, position=[0,0,0]}) => {
   };
 
   const USE_TERRAIN = false;
-  const FORCE_OFFLINE_MAP = false; // 默认远程加载官方 LAD；离线自动回退
-
-  /* ---------------- Scene ---------------- */
+  const FORCE_OFFLINE_MAP = false; 
+  
 const UKScene = ({universities, resetToken=0}) => {
   const [focusCenter, setFocusCenter] = useState(null);
   const [focusBounds, setFocusBounds] = useState(null);
@@ -1146,10 +1116,8 @@ const UKScene = ({universities, resetToken=0}) => {
   </group>`;
 };
 
-  /* ---------------- Placeholder Charts ---------------- */
   const DonutWidget = () => html`<div className="h-48 flex items-center justify-center text-teal-300/80 text-sm">[Charts temporarily disabled]</div>`;
 
-  /* ---------------- Views ---------------- */
   const ProjectCard = ({p,onOpen}) => html`<${Card} className="hover:border-teal-400/40 transition cursor-pointer" onClick=${()=>{ if(p.linkToList){ openLocal(p.linkToList); } else if(p.linkTo){ openLocal([p.linkTo]); } else { onOpen?.(p); } }}>
     <${CardHeader} className="pb-2">
       <div className="flex items-center justify-between">
@@ -1213,7 +1181,6 @@ const UKScene = ({universities, resetToken=0}) => {
     <div className="text-sm text-teal-300/70">Use the API Key panel to verify your institution.</div>
   </div>`;
 
-  /* ---------------- Header ---------------- */
   const Header = ({onCreate, onToggleSheet}) => html`<header className="w-full px-6 py-4 flex items-center justify-between border-b border-teal-900/40 bg-[#0a1016]/80 glass">
     <div className="flex items-center gap-3">
       <img src="MAI%20logo.png" alt="UK Open Multimodal AI Network" className="h-8 w-auto" />
@@ -1226,7 +1193,6 @@ const UKScene = ({universities, resetToken=0}) => {
     </div>
   </header>`;
 
-  /* ---------------- 对齐工具：让右下卡片与左下卡片等高 ---------------- */
   const AlignHomeHeights = () => {
     React.useEffect(()=>{
       const sync=()=>{
@@ -1246,7 +1212,6 @@ const UKScene = ({universities, resetToken=0}) => {
     return null;
   };
 
-  /* ---------------- CSV/GLB Loader Dialog (默认隐藏) ---------------- */
   const Label = ({className='', children}) => html`<label className=${cn('text-sm text-teal-200', className)}>${children}</label>`;
   const Dialog = ({open, children}) => open ? html`${children}` : null;
   const DialogContent = ({className='', children}) => html`<div className="fixed inset-0 z-40 flex items-center justify-center"><div className="absolute inset-0 overlay"></div><div className=${cn('relative z-10 w-[620px] max-w-[95vw] rounded-xl border border-teal-900/40 bg-[#0b131a] p-4', className)}>${children}</div></div>`;
@@ -1310,14 +1275,13 @@ const UKScene = ({universities, resetToken=0}) => {
   </div>
 ` : null}`;
 
-  /* ---------------- App ---------------- */
   function App(){
     const [universities] = useState(initialUniversities);
     const [apiKey, setApiKey] = useState('');
     const [authed, setAuthed] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [apiSheetOpen, setApiSheetOpen] = useState(false);
-    const [tab, setTab] = useState('home'); // 默认进入 Home
+    const [tab, setTab] = useState('home'); 
     const [openProject, setOpenProject] = useState(null);
     const [loaderOpen, setLoaderOpen] = useState(false);
     const [resetToken, setResetToken] = useState(0);
